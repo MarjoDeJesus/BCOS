@@ -688,30 +688,6 @@ async function loadFinanceRecord() {
 }
 
 
-    // REFRESH SCREEN
-    render();
-
-
-  }
-
-  catch (error) {
-
-    console.error(
-      "Unable to load Finance Record:",
-      error
-    );
-
-
-    toast(
-      "Unable to load Finance Record"
-    );
-
-  }
-
-}
-
-
-
 // ============================================================
 // CONVERT GOOGLE SHEET AMOUNT
 //
@@ -896,7 +872,7 @@ function render(){
 let finFilter="ALL";
 function renderFinList(){
   const rows=store.sr.filter(s=>finFilter==="ALL"||s.status===finFilter).map(s=>{
-    const p=s.cms.find(c=>c.rebate!=null)||s.cms[0];const tr=totalRebate(s);const ed=s.status==="FOR_AROTH";
+    const p=s.cms.find(c=>c.rebate!=null)||s.cms[0]||{};const tr=totalRebate(s);const ed=s.status==="FOR_AROTH";
     return `<tr class="clickable" onclick="openDetail('${s.id}','fin')">
       <td class="strong">${s.dt}</td><td>${s.buybackDate}</td><td class="strong">${s.id}</td>
       <td>${p.material||"-"}</td><td>${s.owner}</td><td>${s.arBuy}</td>

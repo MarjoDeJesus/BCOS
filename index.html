@@ -382,7 +382,10 @@ const store={
   draftCM:"AR-INC-0001",
 
   // DATA FROM GOOGLE SHEETS
-  sr:[]
+  sr:[],
+
+  // SHARED OFFSET RECORD DATA FROM GOOGLE SHEETS
+  offsets:[]
 
 };
   // ============================================================
@@ -451,6 +454,10 @@ async function loadFinanceRecord() {
       ? result.rebateRecords
       : [];
 
+    const offsetRows = Array.isArray(result.offsetRecords)
+      ? result.offsetRecords
+      : [];
+
     // ========================================================
     // GROUP REBATE RECORD BY SALES RETURN REF.
     // One SR-BUY can have MULTIPLE CM / IMEI rows.
@@ -478,6 +485,31 @@ async function loadFinanceRecord() {
           : rebateAmount
       });
     });
+
+    // ========================================================
+    // OFFSET RECORD -> SHARED FINANCE + SALES OFFSET LIST
+    // ========================================================
+    store.offsets = offsetRows.map(row => ({
+      offsetNo: row.offsetNo || "",
+      offsetDate: row.offsetDate || "",
+      buybackDate: row.buybackDate || "",
+      owner: row.buybackOwner || "",
+      srRef: row.srRef || "",
+      buybackCM: row.buybackCM || "",
+      buybackAmount: parseBCOSNumber(row.buybackAmount),
+      rebateAmount: parseBCOSNumber(row.rebateAmount),
+      directOffsetCM: row.directOffsetCM || "",
+      availableCM: row.availableCM || "",
+      finalRelease: parseBCOSNumber(row.finalRelease),
+      offsetType: row.offsetType || (row.availableCM ? "available" : "direct")
+    }));
+
+    // Fast lookup so detail pages also know the saved offset type/date/CM.
+    const offsetByNo = new Map(
+      store.offsets
+        .filter(row => row.offsetNo)
+        .map(row => [row.offsetNo, row])
+    );
 
     // ========================================================
     // FINANCE RECORD -> EXISTING BCOS store.sr FORMAT
@@ -524,8 +556,24 @@ async function loadFinanceRecord() {
         cms: cms,
         status: status,
         offsetNo: row.offsetNo || null,
-        offsetType: null,
-        availableCM: null,
+
+        // Loaded from OFFSET RECORD so both Finance and Sales see
+        // the same saved Direct Offset / Available CM transaction.
+        offsetType:
+          row.offsetNo && offsetByNo.get(row.offsetNo)
+            ? offsetByNo.get(row.offsetNo).offsetType
+            : null,
+
+        availableCM:
+          row.offsetNo && offsetByNo.get(row.offsetNo)
+            ? offsetByNo.get(row.offsetNo).availableCM
+            : null,
+
+        offsetDate:
+          row.offsetNo && offsetByNo.get(row.offsetNo)
+            ? offsetByNo.get(row.offsetNo).offsetDate
+            : "",
+
         arothNo: row.rebateOffsetNo || "",
         writeOffNo: row.manualWriteOffNo || "",
         offsetBy: null
@@ -534,7 +582,9 @@ async function loadFinanceRecord() {
 
     console.log("Finance Record loaded:", financeRows);
     console.log("Rebate Record loaded:", rebateRows);
+    console.log("Offset Record loaded:", offsetRows);
     console.log("BCOS store.sr:", store.sr);
+    console.log("BCOS store.offsets:", store.offsets);
 
     render();
 
@@ -982,7 +1032,7 @@ function arothPanel(s,byTag){
 }
 // ------------------------------------------------------------
 // JS PART M — PROCESS OFFSET / CREATE OFFSET NUMBER / CHANGE STATUS
-// Later: this should SAVE the transaction to Google Sheets.
+// Saves to FINANCE RECORD + OFFSET RECORD through Apps Script.
 // ------------------------------------------------------------
 async function processOffset(id){
   const s=store.sr.find(x=>x.id===id);
@@ -1016,17 +1066,50 @@ function todayStr(){const d=new Date();return `${d.getMonth()+1}-${String(d.getD
 // JS PART N — OFFSET RECORD LIST
 // ------------------------------------------------------------
 function renderOffsets(){
-  const recs=store.sr.filter(s=>s.offsetNo).sort((a,b)=>a.offsetNo.localeCompare(b.offsetNo));let body;
+  const recs=[...store.offsets]
+    .filter(s=>s.offsetNo)
+    .sort((a,b)=>a.offsetNo.localeCompare(b.offsetNo));
+
+  let body;
+
   if(!recs.length){
-    body=`<div class="empty"><div class="ic">⇄</div><div class="big">No offsets recorded yet</div><div>Once an offset is processed from a <b>For Offset</b> return (by Sales or Finance), it appears here with its OFFSET number.</div></div>`;
+    body=`<div class="empty"><div class="ic">⇄</div><div class="big">No offsets recorded yet</div><div>Once Sales confirms a <b>For Offset</b> transaction, the saved record from <b>OFFSET RECORD</b> appears here for both Finance and Sales.</div></div>`;
   }else{
     const rows=recs.map(s=>`<tr>
-      <td class="strong">${s.offsetNo}</td><td>${s.offsetDate||"—"}</td><td>${s.buybackDate}</td><td>${s.owner}</td>
-      <td>${s.id}</td><td>${s.arBuy}</td><td class="num">${s.amount.toLocaleString()}</td><td class="num neg">${rebateAbs(s)}</td>
-      <td>${s.offsetType==='direct'?s.arBuy:"-"}</td><td>${s.offsetType==='available'?s.availableCM:"-"}</td><td class="num pos">${finalRelease(s).toLocaleString()}</td></tr>`).join("");
-    body=`<div class="tablewrap"><table><thead class="purple"><tr><th>Offset No.</th><th>Offset Date</th><th>Buyback Date</th><th>Buyback Owner</th><th>Sales Return Ref. No.</th><th>Buyback CM Ref. No.</th><th>Buyback Amount</th><th>Rebate Amount</th><th>Direct Offset</th><th>CM Available</th><th>Final Amount CM Release</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      <td class="strong">${s.offsetNo}</td>
+      <td>${s.offsetDate||"—"}</td>
+      <td>${s.buybackDate||"—"}</td>
+      <td>${s.owner||"—"}</td>
+      <td>${s.srRef||"—"}</td>
+      <td>${s.buybackCM||"—"}</td>
+      <td class="num">${s.buybackAmount.toLocaleString()}</td>
+      <td class="num neg">${s.rebateAmount.toLocaleString()}</td>
+      <td>${s.directOffsetCM||"-"}</td>
+      <td>${s.availableCM||"-"}</td>
+      <td class="num pos">${s.finalRelease.toLocaleString()}</td>
+    </tr>`).join("");
+
+    body=`<div class="tablewrap"><table><thead class="purple"><tr>
+      <th>Offset No.</th>
+      <th>Offset Date</th>
+      <th>Buyback Date</th>
+      <th>Buyback Owner</th>
+      <th>Sales Return Ref. No.</th>
+      <th>Buyback CM Ref. No.</th>
+      <th>Buyback Amount</th>
+      <th>Rebate Amount</th>
+      <th>Direct Offset</th>
+      <th>CM Available</th>
+      <th>Final Amount CM Release</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
   }
-  return `<div class="toolbar"><button class="queue-tab">Transaction Queue</button><div class="search"><input placeholder="Search…" oninput="quickFilter(this.value,'offTbl')"><span class="go">⌕</span></div><span class="lbl">From</span><div class="date-pick">▤ 09 Feb 2021</div><span class="lbl">To</span><div class="date-pick">▤ 09 Feb 2021</div></div><div id="offTbl">${body}</div>`;
+
+  return `<div class="toolbar">
+    <button class="queue-tab">Transaction Queue</button>
+    <div class="search"><input placeholder="Search…" oninput="quickFilter(this.value,'offTbl')"><span class="go">⌕</span></div>
+    <span class="lbl">From</span><div class="date-pick">▤ 09 Feb 2021</div>
+    <span class="lbl">To</span><div class="date-pick">▤ 09 Feb 2021</div>
+  </div><div id="offTbl">${body}</div>`;
 }
 
 // ------------------------------------------------------------

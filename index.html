@@ -392,6 +392,33 @@ const store={
 
 // REPLACE THIS WITH YOUR APPS SCRIPT WEB APP URL
 const FINANCE_API_URL = "https://script.google.com/macros/s/AKfycbzzfNZWn1fJF39Jpakri61PzEUeu2P99e9JdGmHXWJDDv9dsUHrozCdWd14YOodMShr/exec";
+
+// ============================================================
+// BCOS WRITE-BACK API
+// Saves Finance status / AR-OTH / Write-off / Offset No.
+// ============================================================
+async function bcosApiAction(action, params={}) {
+  const url = new URL(FINANCE_API_URL);
+  url.searchParams.set("action", action);
+  url.searchParams.set("_t", Date.now());
+
+  Object.entries(params).forEach(([key,value]) => {
+    if(value !== undefined && value !== null){
+      url.searchParams.set(key, value);
+    }
+  });
+
+  const response = await fetch(url.toString(), {cache:"no-store"});
+  if(!response.ok){
+    throw new Error("HTTP error: " + response.status);
+  }
+
+  const result = await response.json();
+  if(!result.success){
+    throw new Error(result.message || "BCOS update failed");
+  }
+  return result;
+}
   
 async function loadFinanceRecord() {
 
@@ -606,6 +633,17 @@ function convertFinanceStatus(status) {
 
 
   if (
+    value === "ON GOING GA" ||
+    value === "ONGOING GA" ||
+    value === "ON GOING GA FILING"
+  ) {
+
+    return "ONGOING_GA";
+
+  }
+
+
+  if (
     value === "RELEASED"
   ) {
 
@@ -653,17 +691,18 @@ const finalRelease=sr=>sr.offsetType==="available"?sr.amount:sr.amount-rebateAbs
 const STATUS_META={
   BUYBACK_PROCESS:{label:"Buyback Process",cls:"b-process"},
   FOR_OFFSET:{label:"For Offset",cls:"b-offset"},
-  FOR_GA_FILLING:{label:"For GA Filling",cls:"b-ga"},
+  FOR_GA_FILLING:{label:"For GA Filing",cls:"b-ga"},
   FOR_AROTH:{label:"For AR-OTH Creation",cls:"b-aroth"},
+  ONGOING_GA:{label:"On Going GA",cls:"b-ga"},
   RELEASED:{label:"Released",cls:"b-released"}
 };
-const statusBadge=s=>{const m=STATUS_META[s]||STATUS_META.FOR_OFFSET;return `<span class="badge ${m.cls}">${m.label}</span>`};
+const statusBadge=s=>{const m=STATUS_META[s]||STATUS_META.BUYBACK_PROCESS;return `<span class="badge ${m.cls}">${m.label}</span>`};
 const STEPS=[
   {key:"BUYBACK_PROCESS",lab:"Buyback Process"},{key:"FOR_OFFSET",lab:"For Offset"},
-  {key:"FOR_AROTH",lab:"AR-OTH Processing"},{key:"FOR_GA_FILLING",lab:"For GA Filling"},
-  {key:"ONGOING",lab:"On Going GA"},{key:"RELEASED",lab:"Released"}
+  {key:"FOR_AROTH",lab:"AR-OTH Processing"},{key:"FOR_GA_FILLING",lab:"For GA Filing"},
+  {key:"ONGOING_GA",lab:"On Going GA"},{key:"RELEASED",lab:"Released"}
 ];
-function stepIndexFor(s){if(s==="FOR_OFFSET")return 1;if(s==="FOR_AROTH")return 2;if(s==="FOR_GA_FILLING")return 3;if(s==="RELEASED")return 5;return 0}
+function stepIndexFor(s){if(s==="FOR_OFFSET")return 1;if(s==="FOR_AROTH")return 2;if(s==="FOR_GA_FILLING")return 3;if(s==="ONGOING_GA")return 4;if(s==="RELEASED")return 5;return 0}
 function toast(msg){const t=document.createElement("div");t.className="toast";t.innerHTML=`<span class="ti">✓</span><span>${msg}</span>`;$("#toasts").appendChild(t);setTimeout(()=>{t.style.transition=".3s";t.style.opacity="0";t.style.transform="translateX(20px)";setTimeout(()=>t.remove(),300)},2600)}
 
 // ------------------------------------------------------------
@@ -704,21 +743,21 @@ function render(){
 let finFilter="ALL";
 function renderFinList(){
   const rows=store.sr.filter(s=>finFilter==="ALL"||s.status===finFilter).map(s=>{
-    const p=s.cms.find(c=>c.rebate!=null)||s.cms[0];const tr=totalRebate(s);const ed=s.status==="FOR_AROTH";
+    const p=s.cms.find(c=>c.rebate!=null)||s.cms[0]||{};const tr=totalRebate(s);const ed=["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status);
     return `<tr class="clickable" onclick="openDetail('${s.id}','fin')">
       <td class="strong">${s.dt}</td><td>${s.buybackDate}</td><td class="strong">${s.id}</td>
       <td>${p.material||"-"}</td><td>${s.owner}</td><td>${s.arBuy}</td>
       <td class="num">${s.amount.toLocaleString()}</td><td>${s.rebateCmRef}</td>
       <td>${p.nature||"-"}</td><td><span class="mini">${p.detail||"-"}</span></td>
       <td class="num ${tr<0?'neg':''}">${tr!==0?tr:"-"}</td><td class="strong">${s.offsetNo||"-"}</td>
-      <td onclick="event.stopPropagation()"><input class="cell-input" placeholder="AR-OTH No." value="${s.arothNo}" ${ed?"":"disabled"} onchange="setAroth('${s.id}','arothNo',this.value)"></td>
-      <td onclick="event.stopPropagation()"><input class="cell-input" placeholder="Write-off No." value="${s.writeOffNo}" ${ed?"":"disabled"} onchange="setAroth('${s.id}','writeOffNo',this.value)"></td>
+      <td onclick="event.stopPropagation()"><input class="cell-input" placeholder="AR-OTH No." value="${s.arothNo}" ${ed?"":"disabled"} onchange="saveFinanceField('${s.id}','rebateOffsetNo',this.value)"></td>
+      <td onclick="event.stopPropagation()"><input class="cell-input" placeholder="Write-off No." value="${s.writeOffNo}" ${ed?"":"disabled"} onchange="saveFinanceField('${s.id}','manualWriteOffNo',this.value)"></td>
       <td onclick="event.stopPropagation()">${finStatusCell(s)}</td>
     </tr>`}).join("");
   return `<div class="toolbar">
       <div class="search"><input placeholder="Search SR / owner / CM…" oninput="quickFilter(this.value,'finTbl')"><span class="go">⌕</span></div>
       <div class="pill-filter">▤ <select class="status-filter" onchange="finFilter=this.value;render()">
-        <option value="ALL">All Status</option><option value="FOR_OFFSET">For Offset</option><option value="FOR_AROTH">For AR-OTH Creation</option><option value="FOR_GA_FILLING">For GA Filling</option><option value="RELEASED">Released</option></select></div>
+        <option value="ALL">All Status</option><option value="BUYBACK_PROCESS">Buyback Process</option><option value="FOR_OFFSET">For Offset</option><option value="FOR_AROTH">For AR-OTH Creation</option><option value="FOR_GA_FILLING">For GA Filing</option><option value="ONGOING_GA">On Going GA</option><option value="RELEASED">Released</option></select></div>
       <span class="lbl">From</span><div class="date-pick">▤ 09 Feb 2021</div><span class="lbl">To</span><div class="date-pick">▤ 09 Feb 2021</div>
       <div class="spacer"></div><button class="btn" onclick="exportList()">EXPORT</button>
     </div>
@@ -729,11 +768,66 @@ function renderFinList(){
     <p class="mini" style="margin-top:14px">Statuses are computed from IMEI ↔ CM matching. Open any <b>For Offset</b> row to process the offset directly, or a <b>For AR-OTH Creation</b> row to post the AR-OTH and write-off.</p>`;
 }
 function finStatusCell(s){
-  if(s.status==="FOR_AROTH"){return `<select class="badge-select" onchange="finConfirmAroth('${s.id}',this.value)"><option value="FOR_AROTH" selected>For AR-OTH Creation</option><option value="RELEASED">Released</option></select>`}
+  if(s.status==="BUYBACK_PROCESS"){
+    return `<select class="badge-select" onchange="financeChangeStatus('${s.id}',this.value)">
+      <option value="BUYBACK_PROCESS" selected>Buyback Process</option>
+      <option value="FOR_OFFSET">For Offset</option>
+    </select>`;
+  }
+
+  if(s.status==="FOR_OFFSET"){
+    return statusBadge(s.status);
+  }
+
+  if(["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status)){
+    return `<select class="badge-select" onchange="financeChangeStatus('${s.id}',this.value)">
+      <option value="FOR_AROTH" ${s.status==="FOR_AROTH"?"selected":""}>For AR-OTH Creation</option>
+      <option value="FOR_GA_FILLING" ${s.status==="FOR_GA_FILLING"?"selected":""}>For GA Filing</option>
+      <option value="ONGOING_GA" ${s.status==="ONGOING_GA"?"selected":""}>On Going GA</option>
+      <option value="RELEASED">Released</option>
+    </select>`;
+  }
+
   return statusBadge(s.status);
 }
-function setAroth(id,f,v){store.sr.find(s=>s.id===id)[f]=v.trim()}
-function finConfirmAroth(id,val){const s=store.sr.find(x=>x.id===id);if(val==="RELEASED"){if(!s.arothNo||!s.writeOffNo){toast("Enter Rebate Offset No. and Write-off No. first");render();return}s.status="RELEASED";toast(`${s.id} released · AR-OTH ${s.arothNo}`);render()}}
+
+async function financeChangeStatus(id,val){
+  const s=store.sr.find(x=>x.id===id);
+  if(!s)return;
+
+  if(val==="RELEASED" && (!s.arothNo || !s.writeOffNo)){
+    toast("Enter Rebate Offset No. and Write-off No. first");
+    render();
+    return;
+  }
+
+  try{
+    await bcosApiAction("setStatus",{srRef:id,status:val});
+    toast(`${id} status updated to ${(STATUS_META[val]||{}).label||val}`);
+    await loadFinanceRecord();
+  }catch(error){
+    console.error(error);
+    toast(error.message || "Unable to update status");
+    render();
+  }
+}
+
+async function saveFinanceField(id,field,value){
+  const s=store.sr.find(x=>x.id===id);
+  if(!s)return;
+
+  const clean=String(value||"").trim();
+  if(field==="rebateOffsetNo") s.arothNo=clean;
+  if(field==="manualWriteOffNo") s.writeOffNo=clean;
+
+  try{
+    await bcosApiAction("saveFinanceField",{srRef:id,field:field,value:clean});
+    toast(`${id} saved`);
+  }catch(error){
+    console.error(error);
+    toast(error.message || "Unable to save Finance entry");
+  }
+}
 
 // ------------------------------------------------------------
 // JS PART H — SALES SIDE / SEARCH & BUYBACK LIST
@@ -783,11 +877,15 @@ function renderDetail(){
 
   let actionPanel="";
   if(s.status==="FOR_OFFSET"){
-    actionPanel=offsetConfirmPanel(s);
-  }else if(s.status==="FOR_AROTH"){
+    if(store.role==="sales"){
+      actionPanel=offsetConfirmPanel(s);
+    }else{
+      actionPanel=`<div class="panel"><span class="confirm-head">Waiting for Sales Confirmation</span><div class="note-done">This transaction is already tagged <b>For Offset</b>. Sales must confirm <b>Direct Offset</b> or <b>Available CM</b> before an Offset No. is generated.</div></div>`;
+    }
+  }else if(["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status)){
     const byTag=s.offsetBy?`<span class="who-tag">Offset by ${s.offsetBy}</span>`:"";
     if(store.role==="finance"){actionPanel=arothPanel(s,byTag);}
-    else{actionPanel=`<div class="panel"><span class="confirm-head">Offset submitted ${byTag}</span><div class="note-done">Offset <b>${s.offsetNo}</b> recorded. Waiting on Finance to create the AR-OTH and post the write-off. This return now lives in the <b>Offset Record List</b>.</div></div>`;}
+    else{actionPanel=`<div class="panel"><span class="confirm-head">Finance Processing ${byTag}</span><div class="note-done">Offset <b>${s.offsetNo}</b> recorded. Current status: <b>${(STATUS_META[s.status]||{}).label||s.status}</b>. Finance controls the remaining GA / release process.</div></div>`;}
   }else if(s.status==="RELEASED"){
     actionPanel=`<div class="panel"><span class="confirm-head">Released</span><div class="note-done">Offset <b>${s.offsetNo}</b> · Rebate Offset No. <b>${s.arothNo}</b> · Write-off No. <b>${s.writeOffNo}</b>.<br>Buyback amount released to owner: <b>${peso(finalRelease(s))}</b>.</div></div>`;
   }
@@ -796,7 +894,7 @@ function renderDetail(){
     <div class="panel"><span class="section-tag">Transaction Progress</span>
       <div class="stepper"><div class="prog-line" style="width:calc(${pct}% - ${pct*0.68}px + 34px)"></div>${stepsHTML}</div></div>
     <div class="panel">
-      <span class="section-tag">${s.status==="FOR_GA_FILLING"?"For GA Filling":"For Offset"}</span>
+      <span class="section-tag">${(STATUS_META[s.status]||{}).label||"Transaction"}</span>
       <div class="sr-title">${s.id}</div><div class="sr-sub">SALES RETURN REFERENCE NO.</div>
       <div class="meta-bar">
         <div><span>Buyback Owner</span><b>${s.owner}</b></div>
@@ -873,20 +971,45 @@ function setDraftType(t){store.draftType=t;render()}
 // JS PART L — FINANCE AR-OTH + MANUAL WRITE-OFF
 // ------------------------------------------------------------
 function arothPanel(s,byTag){
-  return `<div class="panel"><span class="confirm-head">AR-OTH Creation ${byTag||""}</span>
-    <div class="note-done" style="margin-bottom:16px">Offset <b>${s.offsetNo}</b> completed${s.offsetType==='available'?` via available CM <b>${s.availableCM}</b>`:''}. Enter the AR-OTH and write-off references to release.</div>
+  const editable=["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status);
+  return `<div class="panel"><span class="confirm-head">Finance Processing ${byTag||""}</span>
+    <div class="note-done" style="margin-bottom:16px">Offset <b>${s.offsetNo||"-"}</b> completed. Enter the AR-OTH and write-off references below. These entries save directly to <b>FINANCE RECORD</b>.</div>
     <div class="aroth-form">
-      <div><label>Rebate Offset No. (AR-OTH)</label><input id="arothInput" placeholder="e.g. AR-OTH-0001" value="${s.arothNo}"></div>
-      <div><label>Manual Write-off No.</label><input id="woInput" placeholder="e.g. 1234323" value="${s.writeOffNo}"></div>
-      <button class="btn" style="width:100%" onclick="submitAroth('${s.id}')">Create AR-OTH & Release</button>
+      <div><label>Rebate Offset No. (AR-OTH)</label><input id="arothInput" placeholder="e.g. AR-OTH-0001" value="${s.arothNo}" ${editable?"":"disabled"} onchange="saveFinanceField('${s.id}','rebateOffsetNo',this.value)"></div>
+      <div><label>Manual Write-off No.</label><input id="woInput" placeholder="e.g. 1234323" value="${s.writeOffNo}" ${editable?"":"disabled"} onchange="saveFinanceField('${s.id}','manualWriteOffNo',this.value)"></div>
+      <p class="avail-note">After saving the references, Finance can change the status from <b>For AR-OTH Creation</b> → <b>For GA Filing</b> → <b>On Going GA</b> → <b>Released</b>.</p>
     </div></div>`;
 }
-function submitAroth(id){const s=store.sr.find(x=>x.id===id);const a=$("#arothInput").value.trim(),w=$("#woInput").value.trim();if(!a||!w){toast("Enter both the AR-OTH No. and the Write-off No.");return}s.arothNo=a;s.writeOffNo=w;s.status="RELEASED";toast(`${s.id} released · AR-OTH ${a}`);render()}
 // ------------------------------------------------------------
 // JS PART M — PROCESS OFFSET / CREATE OFFSET NUMBER / CHANGE STATUS
 // Later: this should SAVE the transaction to Google Sheets.
 // ------------------------------------------------------------
-function processOffset(id){const s=store.sr.find(x=>x.id===id);s.offsetType=store.draftType;s.availableCM=store.draftType==="available"?store.draftCM:null;s.offsetNo="OFFSET-"+String(store.offsetSeq++).padStart(4,"0");s.offsetDate=todayStr();s.offsetBy=USERS[store.role].role;s.status="FOR_AROTH";toast(`Offset processed by ${s.offsetBy} · ${s.offsetNo} created`);render()}
+async function processOffset(id){
+  const s=store.sr.find(x=>x.id===id);
+  if(!s)return;
+
+  if(store.role!=="sales"){
+    toast("Sales confirmation is required to process the offset");
+    return;
+  }
+
+  try{
+    const result=await bcosApiAction("processOffset",{
+      srRef:id,
+      offsetType:store.draftType,
+      availableCM:store.draftType==="available"?store.draftCM:""
+    });
+
+    toast(`Offset processed · ${result.offsetNo} created`);
+    await loadFinanceRecord();
+    store.activeSR=id;
+    store.view="sales-detail";
+    render();
+  }catch(error){
+    console.error(error);
+    toast(error.message || "Unable to process offset");
+  }
+}
 function todayStr(){const d=new Date();return `${d.getMonth()+1}-${String(d.getDate()).padStart(2,'0')}-${d.getFullYear()}`}
 
 // ------------------------------------------------------------
@@ -913,7 +1036,7 @@ function renderDash(){
   const all=store.sr;const count=st=>all.filter(s=>s.status===st).length;
   const totalBuyback=all.reduce((a,s)=>a+s.amount,0);const totalRebateAll=all.reduce((a,s)=>a+rebateAbs(s),0);
   const released=all.filter(s=>s.status==="RELEASED");const totalReleased=released.reduce((a,s)=>a+finalRelease(s),0);
-  const dist=[{k:"For Offset",n:count("FOR_OFFSET"),c:"#FFC61A"},{k:"For AR-OTH Creation",n:count("FOR_AROTH"),c:"#8d8b98"},{k:"For GA Filling",n:count("FOR_GA_FILLING"),c:"#E9C766"},{k:"Released",n:count("RELEASED"),c:"#1f1e25"}];
+  const dist=[{k:"Buyback Process",n:count("BUYBACK_PROCESS"),c:"#a8abb5"},{k:"For Offset",n:count("FOR_OFFSET"),c:"#FFC61A"},{k:"For AR-OTH Creation",n:count("FOR_AROTH"),c:"#8d8b98"},{k:"For GA Filing",n:count("FOR_GA_FILLING"),c:"#E9C766"},{k:"On Going GA",n:count("ONGOING_GA"),c:"#c6b46a"},{k:"Released",n:count("RELEASED"),c:"#1f1e25"}];
   const maxN=Math.max(1,...dist.map(d=>d.n));
   const bars=dist.map(d=>`<div class="barrow"><div class="bl">${d.k}</div><div class="bartrack"><div class="barfill" style="width:${(d.n/maxN)*100}%;background:${d.c}"></div></div><div class="bn">${d.n}</div></div>`).join("");
   const total=all.length||1;let acc=0;const segs=dist.map(d=>{const f=d.n/total;const s=`${d.c} ${acc*360}deg ${(acc+f)*360}deg`;acc+=f;return s}).join(",");

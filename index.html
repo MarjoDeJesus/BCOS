@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BCOS — Buyback CM Offset System</title>
+<style>
+  :root{
+    --dark:#141318;--dark-2:#1f1e25;--dark-3:#2a2831;
+    --sidebar:#141318;--sidebar-2:#1c1b22;--sidebar-active:#2a2831;
+    --header:#1a191f;--header-2:#26242d;
+    --gold:#FFC61A;--gold-2:#FFD34D;--gold-deep:#F4B301;--gold-soft:#FFF3C9;
+    --on-gold:#161418;
+    --primary:#FFC61A;
+    --ink:#1b1a1f;--ink-2:#4a4954;--muted:#8d8b98;
+    --line:#ecebf0;--line-2:#f3f2f6;--bg:#f6f6f3;--panel:#ffffff;
+    --red:#d8412f;
+    --radius:14px;--shadow:0 10px 30px rgba(20,19,24,.09);--shadow-sm:0 2px 10px rgba(20,19,24,.06);
+    font-synthesis:none;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:"Segoe UI",Inter,Arial,system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select{font-family:inherit}
+  ::selection{background:#ffe9a0}
+
+  /* LOGO */
+  .logo-mark{width:52px;height:52px;flex:none;display:block}
+  .logo-mark.lg{width:58px;height:58px}
+  .logo-mark svg{width:100%;height:100%;display:block}
+
+  #login{position:fixed;inset:0;display:grid;place-items:center;
+    background:radial-gradient(1100px 560px at 18% -12%, #3a2f10 0%, transparent 58%),radial-gradient(900px 520px at 112% 120%, #2a2620 0%, transparent 55%),linear-gradient(158deg,#131217,#211f28);z-index:50}
+  .login-card{width:min(880px,92vw);background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.45);overflow:hidden;display:grid;grid-template-columns:1fr 1fr}
+  .login-brand{background:linear-gradient(165deg,#1c1a22,#0f0e13);color:#fff;padding:44px 40px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+  .login-brand::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--gold-2),var(--gold-deep))}
+  .brand-mark{display:flex;align-items:center;gap:14px}
+  .brand-name{font-size:30px;font-weight:800;letter-spacing:.5px;line-height:1;color:#fff}
+  .brand-sub{font-size:10px;letter-spacing:3px;color:var(--gold);margin-top:6px;font-weight:700}
+  .login-tag{font-size:14px;line-height:1.6;color:#d9d7cf;max-width:34ch;margin-top:26px}
+  .login-foot{font-size:11px;color:#7d7a6c;letter-spacing:.3px}
+  .login-right{padding:44px 40px}
+  .login-right h2{margin:0 0 4px;font-size:22px}
+  .login-right p{margin:0 0 26px;color:var(--muted);font-size:13px}
+  .role-card{width:100%;text-align:left;border:1.5px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;display:flex;align-items:center;gap:16px;transition:.16s;background:#fff}
+  .role-card:hover{border-color:var(--gold-deep);transform:translateY(-2px);box-shadow:0 8px 22px rgba(244,179,1,.16)}
+  .role-ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;flex:none;font-size:20px}
+  .role-ic.fin{background:linear-gradient(135deg,#26242d,#131217);color:var(--gold)}
+  .role-ic.sal{background:linear-gradient(135deg,var(--gold-2),var(--gold-deep));color:var(--on-gold)}
+  .role-card b{display:block;font-size:15px}
+  .role-card span{font-size:12px;color:var(--muted)}
+  .role-card .arw{margin-left:auto;color:var(--muted);font-size:18px}
+
+  #app{display:none;min-height:100vh}
+  .shell{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+  .sidebar{background:linear-gradient(180deg,var(--sidebar),var(--sidebar-2));color:#cdccd4;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh}
+  .side-brand{display:flex;align-items:center;gap:12px;padding:6px 8px 26px}
+  .side-brand .brand-name{font-size:24px}
+  .side-brand .brand-sub{margin-top:4px}
+  .nav{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .nav button{display:flex;align-items:center;gap:14px;padding:13px 16px;border-radius:12px;color:#bfbec8;font-size:14px;font-weight:600;text-align:left;width:100%;transition:.14s}
+  .nav button .ni{width:20px;text-align:center;font-size:16px;opacity:.9}
+  .nav button:hover{background:#242229;color:#fff}
+  .nav button.active{background:var(--sidebar-active);color:#fff;box-shadow:inset 3px 0 0 var(--gold)}
+  .nav button.active .ni{color:var(--gold);opacity:1}
+  .side-foot{margin-top:auto;padding-top:16px}
+  .signout{display:flex;align-items:center;gap:12px;color:#9896a2;font-size:14px;padding:12px 16px;border-radius:12px;width:100%}
+  .signout:hover{background:#242229;color:#fff}
+
+  .main{display:flex;flex-direction:column;min-width:0}
+  .topbar{background:linear-gradient(90deg,var(--header),var(--header-2));color:#fff;padding:0 30px;height:74px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--gold)}
+  .topbar h1{font-size:19px;letter-spacing:1px;font-weight:700;margin:0;text-transform:uppercase}
+  .user-chip{display:flex;align-items:center;gap:12px;position:relative}
+  .user-chip .who{text-align:right;line-height:1.15}
+  .user-chip .who b{font-size:13px;display:block;letter-spacing:.5px}
+  .user-chip .who span{font-size:10px;letter-spacing:2px;color:var(--gold)}
+  .avatar{width:40px;height:40px;border-radius:50%;background:rgba(255,198,26,.12);display:grid;place-items:center;font-size:18px;border:1.5px solid rgba(255,198,26,.5);color:#fff}
+  .user-menu{position:absolute;right:0;top:52px;background:#fff;color:var(--ink);border-radius:12px;box-shadow:var(--shadow);min-width:190px;padding:8px;display:none;z-index:20}
+  .user-menu.open{display:block}
+  .user-menu button{display:flex;gap:10px;align-items:center;width:100%;padding:11px 12px;border-radius:9px;font-size:13px;color:var(--ink)}
+  .user-menu button:hover{background:var(--bg)}
+  .content{padding:26px 30px 60px}
+
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:20px}
+  .search{display:flex;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .search input{border:none;outline:none;padding:11px 14px;width:280px;font-size:13px;background:transparent}
+  .search input:focus{box-shadow:none}
+  .search .go{background:linear-gradient(135deg,var(--gold-2),var(--gold-deep));color:var(--on-gold);padding:0 16px;align-self:stretch;display:grid;place-items:center;font-size:14px}
+  .pill-filter,.date-pick{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink-2)}
+  select.status-filter{border:none;outline:none;background:transparent;font-size:13px;color:var(--ink);font-weight:600}
+  .date-pick{color:var(--muted)}
+  .lbl{font-size:12px;color:var(--muted);font-weight:600}
+  .btn{background:linear-gradient(135deg,var(--gold-2),var(--gold-deep));color:var(--on-gold);border-radius:9px;padding:11px 20px;font-size:13px;font-weight:800;letter-spacing:.4px;transition:.14s}
+  .btn:hover{filter:brightness(.96)}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--gold-deep);background:#fffdf5}
+  .btn.dark{background:var(--dark-2);color:#fff}
+  .btn.dark:hover{background:#2f2d37}
+  .spacer{flex:1}
+  .queue-tab{background:var(--dark-2);color:#fff;border-radius:9px;padding:11px 18px;font-size:12.5px;font-weight:700}
+
+  .tablewrap{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto}
+  table{border-collapse:collapse;width:100%;min-width:820px}
+  thead.purple th{background:linear-gradient(180deg,#26242d,#1a191f);color:#fff;font-size:11.5px;letter-spacing:.4px;text-transform:uppercase;padding:16px 14px;text-align:left;font-weight:700;white-space:nowrap;vertical-align:middle;border-bottom:2px solid var(--gold)}
+  thead.navy th{background:var(--dark);color:#fff;font-size:12px;padding:15px 16px;text-align:left;font-weight:700;letter-spacing:.3px;border-bottom:2px solid var(--gold)}
+  tbody td{padding:14px;font-size:12.5px;color:var(--ink-2);border-bottom:1px solid var(--line-2);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr.clickable{cursor:pointer;transition:.12s}
+  tbody tr.clickable:hover{background:#fffbee}
+  td .strong{color:var(--ink);font-weight:700}
+  td.num{font-variant-numeric:tabular-nums}
+  .neg{color:var(--red);font-weight:700}.pos{color:var(--ink);font-weight:800}
+  .mini{font-size:11px;color:var(--muted)}
+  .cell-input{width:130px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;outline:none}
+  .cell-input:focus{border-color:var(--gold-deep);box-shadow:0 0 0 3px rgba(255,198,26,.18)}
+  .cell-input:disabled{background:#f6f6f4;color:#b7b6c0}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;letter-spacing:.2px}
+  .badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .b-offset{background:#ffe9a8;color:#7a5500}
+  .b-ga{background:#f3efe1;color:#8a7737}
+  .b-aroth{background:#e9ebf1;color:#3f4757}
+  .b-released{background:var(--dark-2);color:#ffd24d}
+  .b-process{background:#eef0f3;color:#5a6079}
+  select.badge-select{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;color:var(--ink);outline:none;background:#fff}
+  .empty{padding:60px 20px;text-align:center;color:var(--muted)}
+  .empty .big{font-size:15px;color:var(--ink-2);font-weight:600;margin-bottom:6px}
+  .empty .ic{font-size:34px;margin-bottom:10px;opacity:.55}
+
+  .back{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);font-weight:700;font-size:13px;margin-bottom:16px}
+  .back:hover{color:var(--gold-deep)}
+  .panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 24px;margin-bottom:18px}
+  .stepper{display:flex;align-items:flex-start;justify-content:space-between;position:relative;padding:6px 4px 0}
+  .stepper::before{content:"";position:absolute;top:16px;left:34px;right:34px;height:3px;background:var(--line);border-radius:3px}
+  .prog-line{position:absolute;top:16px;left:34px;height:3px;background:linear-gradient(90deg,var(--gold-2),var(--gold-deep));border-radius:3px;transition:width .4s}
+  .step{display:flex;flex-direction:column;align-items:center;gap:9px;position:relative;z-index:2;flex:1}
+  .step .dot{width:34px;height:34px;border-radius:50%;background:#fff;border:3px solid var(--line);display:grid;place-items:center;color:transparent;font-size:14px;transition:.2s}
+  .step.done .dot{background:linear-gradient(135deg,var(--gold-2),var(--gold-deep));border-color:var(--gold-deep);color:var(--on-gold)}
+  .step.current .dot{background:linear-gradient(135deg,var(--gold-2),var(--gold-deep));border-color:#fff0bf;box-shadow:0 0 0 4px #fff0bf;color:var(--on-gold)}
+  .step .lab{font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;text-align:center;max-width:90px}
+  .step.done .lab,.step.current .lab{color:#a4790a}
+  .section-tag{display:inline-block;background:linear-gradient(135deg,var(--gold-2),var(--gold-deep));color:var(--on-gold);font-size:10.5px;font-weight:800;letter-spacing:1px;padding:5px 12px;border-radius:6px;text-transform:uppercase;margin-bottom:14px}
+  .sr-title{font-size:34px;font-weight:800;letter-spacing:.5px;color:var(--ink);line-height:1}
+  .sr-sub{font-size:11px;letter-spacing:2px;color:var(--muted);margin-top:6px;font-weight:600}
+  .meta-bar{display:grid;grid-template-columns:repeat(4,1fr);background:#f2f1ec;border-radius:10px;padding:16px 20px;margin:18px 0 22px;gap:16px}
+  .meta-bar div span{display:block;font-size:10.5px;letter-spacing:.6px;color:var(--ink-2);font-weight:700;text-transform:uppercase;margin-bottom:5px}
+  .meta-bar div b{font-size:13px;color:var(--ink)}
+  .detail-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+  .rebate-box{background:linear-gradient(160deg,#26242d,#111015);color:#fff;border-radius:14px;padding:20px;box-shadow:0 12px 24px rgba(20,19,24,.28);border:1px solid #33313b}
+  .rebate-box span{font-size:11px;letter-spacing:1px;font-weight:700;opacity:.8;text-transform:uppercase}
+  .rebate-box b{display:block;font-size:34px;font-weight:800;margin-top:8px;color:var(--gold-2)}
+  .imei-tbl thead th{background:var(--dark)}
+  .imei-tbl td{font-size:12px}
+  .chip{display:inline-block;background:#f2f1f6;color:var(--ink-2);border-radius:7px;padding:6px 10px;font-size:11px;max-width:220px}
+  .settle{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px;align-items:start}
+  .settle-card{background:#fbfbf8;border:1px solid var(--line);border-radius:14px;padding:20px}
+  .settle-row{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;font-size:13px}
+  .settle-row .k{color:var(--ink-2)}
+  .settle-row .k small{display:block;color:var(--muted);font-size:11px}
+  .settle-row .v{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
+  .peso{color:var(--muted);font-weight:600;margin-right:6px}
+  .final-row{display:flex;justify-content:space-between;align-items:center;padding-top:14px;margin-top:6px;border-top:2px solid var(--gold)}
+  .final-row .k{font-size:14px;font-weight:700;color:var(--ink)}
+  .final-row .v{font-size:22px;font-weight:800;color:var(--ink)}
+  .settle-foot{margin-top:12px;color:var(--muted);font-size:11.5px;line-height:1.5}
+  .confirm-head{display:inline-block;background:linear-gradient(135deg,var(--gold-2),var(--gold-deep));color:var(--on-gold);font-size:10.5px;font-weight:800;letter-spacing:1px;padding:5px 12px;border-radius:6px;text-transform:uppercase;margin-bottom:16px}
+  .offset-opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+  .opt{border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:.14s;font-weight:700;font-size:13px}
+  .opt:hover{border-color:#f0d888}
+  .opt.sel{border-color:var(--gold-deep);background:#fffaeb}
+  .opt .radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center}
+  .opt.sel .radio{border-color:var(--gold-deep)}
+  .opt.sel .radio::after{content:"";width:9px;height:9px;border-radius:50%;background:var(--gold-deep)}
+  .field-lab{font-size:11px;font-weight:700;color:var(--ink-2);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
+  .cm-no{font-size:16px;font-weight:800;color:var(--ink)}
+  .sel-cm{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:13px;outline:none;background:#fff}
+  .sel-cm:focus{border-color:var(--gold-deep)}
+  .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 4px}
+  .stat{background:#f6f6f3;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .stat span{display:block;font-size:10px;letter-spacing:.5px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px}
+  .stat b{font-size:16px;color:var(--ink)}
+  .avail-note{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5}
+  .who-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 9px;margin-left:8px;text-transform:uppercase;vertical-align:middle}
+  .aroth-form{display:grid;gap:14px}
+  .aroth-form label{font-size:11px;font-weight:700;color:var(--ink-2);letter-spacing:.4px;text-transform:uppercase;display:block;margin-bottom:6px}
+  .aroth-form input{width:100%;border:1px solid var(--line);border-radius:9px;padding:12px;font-size:13px;outline:none}
+  .aroth-form input:focus{border-color:var(--gold-deep);box-shadow:0 0 0 3px rgba(255,198,26,.18)}
+  .note-done{background:#fff6dd;border:1px solid #f0e0a4;color:#7a5b00;border-radius:10px;padding:14px 16px;font-size:12.5px;line-height:1.5}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+  .kpi{background:#fff;border-radius:14px;box-shadow:var(--shadow-sm);padding:18px 20px;border-top:3px solid var(--gold)}
+  .kpi .kl{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+  .kpi .kv{font-size:28px;font-weight:800;margin-top:8px;font-variant-numeric:tabular-nums}
+  .kpi .kd{font-size:11px;color:var(--muted);margin-top:4px}
+  .dash-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
+  .card-h{font-size:14px;font-weight:800;margin:0 0 4px}
+  .card-s{font-size:12px;color:var(--muted);margin:0 0 18px}
+  .barrow{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .barrow .bl{width:150px;font-size:12px;font-weight:600;color:var(--ink-2)}
+  .bartrack{flex:1;height:12px;background:#efefe9;border-radius:8px;overflow:hidden}
+  .barfill{height:100%;border-radius:8px}
+  .barrow .bn{width:28px;text-align:right;font-weight:800;font-size:13px}
+  .donut-wrap{display:flex;align-items:center;gap:24px}
+  .legend{display:flex;flex-direction:column;gap:10px}
+  .legend div{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2)}
+  .legend .sw{width:12px;height:12px;border-radius:4px}
+
+  #toasts{position:fixed;right:24px;bottom:24px;display:flex;flex-direction:column;gap:10px;z-index:60}
+  .toast{background:var(--dark-2);color:#fff;padding:14px 18px;border-radius:11px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.28);display:flex;align-items:center;gap:12px;animation:slidein .25s ease;max-width:340px}
+  .toast .ti{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--gold-2),var(--gold-deep));display:grid;place-items:center;font-size:14px;color:var(--on-gold);flex:none}
+  @keyframes slidein{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
+
+  @media(max-width:900px){
+    .shell{grid-template-columns:1fr}
+    .sidebar{position:static;height:auto;flex-direction:row;flex-wrap:wrap}
+    .nav{flex-direction:row;flex-wrap:wrap;margin:0}.side-foot{margin:0}
+    .detail-grid,.settle,.offset-opts,.dash-grid,.kpis,.meta-bar,.stat-row{grid-template-columns:1fr}
+    .login-card{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- reusable logo (defs id-scoped so it can appear twice) -->
+<template id="bcosLogo">
+  <span class="logo-mark">
+    <svg viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BCOS logo">
+      <defs>
+        <linearGradient id="bcosTile" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#2c2a34"/><stop offset="1" stop-color="#0f0e13"/>
+        </linearGradient>
+        <linearGradient id="bcosGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FFE27A"/><stop offset="1" stop-color="#F4B301"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="6" width="44" height="44" rx="13" fill="url(#bcosTile)" stroke="#3a3842"/>
+      <g stroke="url(#bcosGold)" stroke-width="3.6" stroke-linecap="round" fill="none">
+        <path d="M15 23 H29"/><path d="M33 33 H19"/>
+      </g>
+      <g fill="url(#bcosGold)">
+        <path d="M28 18.5 L34.6 23 L28 27.5 Z"/><path d="M20 28.5 L13.4 33 L20 37.5 Z"/>
+      </g>
+      <circle cx="45" cy="8.5" r="3.6" fill="#FFD24D"/>
+    </svg>
+  </span>
+</template>
+
+<div id="login">
+  <div class="login-card">
+    <div class="login-brand">
+      <div>
+        <div class="brand-mark">
+          <span class="logo-slot lg"></span>
+          <div><div class="brand-name">BCOS</div><div class="brand-sub">BUYBACK CM OFFSET</div></div>
+        </div>
+        <p class="login-tag">Match sales returns to credit memos, process offsets, and release buyback amounts — in one place.</p>
+      </div>
+      <div class="login-foot">Interactive prototype · Mock data</div>
+    </div>
+    <div class="login-right">
+      <h2>Sign in</h2>
+      <p>Choose a role to explore the workflow.</p>
+      <button class="role-card" onclick="login('finance')">
+        <span class="role-ic fin">▤</span>
+        <span><b>Finance</b><span>Buyback list · IMEI matching · process offset · AR-OTH</span></span>
+        <span class="arw">→</span>
+      </button>
+      <button class="role-card" onclick="login('sales')">
+        <span class="role-ic sal">⇄</span>
+        <span><b>Sales</b><span>Search a return · process the offset</span></span>
+        <span class="arw">→</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="side-brand">
+        <span class="logo-slot"></span>
+        <div><div class="brand-name">BCOS</div><div class="brand-sub">BUYBACK CM OFFSET</div></div>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="side-foot"><button class="signout" onclick="logout()"><span class="ni">⎋</span> Sign Out</button></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <h1 id="pageTitle">List of Buyback</h1>
+        <div class="user-chip">
+          <div class="who"><b id="userName">JOHN</b><span id="userRole">FINANCE</span></div>
+          <button class="avatar" onclick="toggleUserMenu(event)">◕</button>
+          <div class="user-menu" id="userMenu">
+            <button onclick="switchRole()">⇄ Switch role</button>
+            <button onclick="logout()">⎋ Sign out</button>
+          </div>
+        </div>
+      </header>
+      <div class="content" id="view"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+// stamp the logo into every slot
+document.querySelectorAll(".logo-slot").forEach(slot=>{
+  const node=document.getElementById("bcosLogo").content.cloneNode(true);
+  if(slot.classList.contains("lg")) node.querySelector(".logo-mark").classList.add("lg");
+  slot.replaceWith(node);
+});
+
+const USERS={finance:{name:"JOHN",role:"FINANCE"},sales:{name:"Jane",role:"SALES"}};
+const store={
+  role:null,view:null,activeSR:null,salesSearched:false,salesQuery:"",offsetSeq:1,
+  draftType:"direct",draftCM:"AR-INC-0001",
+  sr:[
+    {id:"SR-BUY-0001",arBuy:"AR-BUY-0001",dt:"202608022635",buybackDate:"8-02-2026",owner:"COLDTISPAYR",amount:5000,rebateCmRef:"AR-PRI-0001",
+      cms:[
+        {doc:"CM-001",imei:"086655532934324",nature:"Sell-In",detail:"Phone Sell-In Rebate October 1, 2025 to January 10, 2026",material:"HP C85 4G (6+128) RMX5566-KINGFISHER BLUE",rebate:-100},
+        {doc:"CM-002",imei:"086655532934325",nature:"EOL",detail:"Note 60x (3+64) PPD (June 24, 2025 - onwards)",material:"HP Note 60x (3+64) RMX3938-MARBLE BLACK",rebate:-120},
+        {doc:"CM-003",imei:"086655532934336",nature:"Sell-in (R-Club without BV)",detail:"R-Club Sell-In Rebate May 2026",material:"HP Note 70 (4+128) RMX5313-BEACH GOLD",rebate:-50},
+        {doc:"-",imei:"086655532934233",nature:"-",detail:"",material:"HP Note 70 (4+128) RMX5313-BEACH GOLD",rebate:null}
+      ],status:"FOR_OFFSET",offsetNo:null,offsetType:null,availableCM:null,arothNo:"",writeOffNo:"",offsetBy:null},
+    {id:"SR-BUY-0002",arBuy:"AR-BUY-0002",dt:"202607922636",buybackDate:"7-09-2026",owner:"VSTICS",amount:4000,rebateCmRef:"AR-DEF-0001",
+      cms:[
+        {doc:"CM-011",imei:"086655532940011",nature:"EOL",detail:"Note 60x (3+64) End-of-Life Rebate February 2026",material:"HP Note 60x (3+64) RMX3938-MARBLE BLACK",rebate:-100},
+        {doc:"CM-012",imei:"086655532940012",nature:"Sell-In",detail:"Sell-In Rebate January 15, 2026 to March 30, 2026",material:"HP C85 4G (6+128) RMX5566-KINGFISHER BLUE",rebate:-50}
+      ],status:"FOR_OFFSET",offsetNo:null,offsetType:null,availableCM:null,arothNo:"",writeOffNo:"",offsetBy:null},
+    {id:"SR-BUY-0003",arBuy:"AR-BUY-0003",dt:"202606922637",buybackDate:"8-02-2026",owner:"COBLE MUGI",amount:3000,rebateCmRef:"-",
+      cms:[{doc:"-",imei:"086655532955501",nature:"-",detail:"",material:"HP Note 70 (4+128) RMX5313-BEACH GOLD",rebate:null}],
+      status:"FOR_GA_FILLING",offsetNo:null,offsetType:null,availableCM:null,arothNo:"",writeOffNo:"",offsetBy:null}
+  ]
+};
+const AVAILABLE_CMS=[
+  {id:"AR-INC-0001",amount:10000,aging:56},
+  {id:"AR-PRI-0003",amount:8000,aging:40},
+  {id:"AR-DEF-0004",amount:15000,aging:22},
+  {id:"AR-INC-0005",amount:6500,aging:71}
+];
+const getCM=id=>AVAILABLE_CMS.find(c=>c.id===id)||{id:id,amount:0,aging:0};
+
+const $=s=>document.querySelector(s);
+const peso=n=>"₱ "+Number(n).toLocaleString();
+const totalRebate=sr=>sr.cms.reduce((a,c)=>a+(c.rebate||0),0);
+const rebateAbs=sr=>Math.abs(totalRebate(sr));
+const matchedCount=sr=>sr.cms.filter(c=>c.rebate!=null).length;
+const finalRelease=sr=>sr.offsetType==="available"?sr.amount:sr.amount-rebateAbs(sr);
+
+const STATUS_META={
+  BUYBACK_PROCESS:{label:"Buyback Process",cls:"b-process"},
+  FOR_OFFSET:{label:"For Offset",cls:"b-offset"},
+  FOR_GA_FILLING:{label:"For GA Filling",cls:"b-ga"},
+  FOR_AROTH:{label:"For AR-OTH Creation",cls:"b-aroth"},
+  RELEASED:{label:"Released",cls:"b-released"}
+};
+const statusBadge=s=>{const m=STATUS_META[s]||STATUS_META.FOR_OFFSET;return `<span class="badge ${m.cls}">${m.label}</span>`};
+const STEPS=[
+  {key:"BUYBACK_PROCESS",lab:"Buyback Process"},{key:"FOR_OFFSET",lab:"For Offset"},
+  {key:"FOR_AROTH",lab:"AR-OTH Processing"},{key:"FOR_GA_FILLING",lab:"For GA Filling"},
+  {key:"ONGOING",lab:"On Going GA"},{key:"RELEASED",lab:"Released"}
+];
+function stepIndexFor(s){if(s==="FOR_OFFSET")return 1;if(s==="FOR_AROTH")return 2;if(s==="FOR_GA_FILLING")return 3;if(s==="RELEASED")return 5;return 0}
+function toast(msg){const t=document.createElement("div");t.className="toast";t.innerHTML=`<span class="ti">✓</span><span>${msg}</span>`;$("#toasts").appendChild(t);setTimeout(()=>{t.style.transition=".3s";t.style.opacity="0";t.style.transform="translateX(20px)";setTimeout(()=>t.remove(),300)},2600)}
+
+function login(role){store.role=role;$("#login").style.display="none";$("#app").style.display="block";const u=USERS[role];$("#userName").textContent=u.name;$("#userRole").textContent=u.role;buildNav();store.view=role==="finance"?"fin-list":"sales-list";render()}
+function logout(){store.role=null;store.activeSR=null;store.salesSearched=false;store.salesQuery="";$("#app").style.display="none";$("#login").style.display="grid";closeUserMenu()}
+function switchRole(){const n=store.role==="finance"?"sales":"finance";closeUserMenu();login(n)}
+function toggleUserMenu(e){e.stopPropagation();$("#userMenu").classList.toggle("open")}
+function closeUserMenu(){const m=$("#userMenu");if(m)m.classList.remove("open")}
+document.addEventListener("click",closeUserMenu);
+
+function buildNav(){
+  const items=store.role==="finance"?[
+    {v:"fin-list",ic:"⌂",t:"Buyback List"},{v:"fin-offsets",ic:"⇄",t:"Offset Record List"},{v:"fin-dash",ic:"▦",t:"Dashboard"}
+  ]:[
+    {v:"sales-list",ic:"⌂",t:"Buyback Record List"},{v:"sales-offsets",ic:"⇄",t:"Offset Record List"}
+  ];
+  $("#nav").innerHTML=items.map(i=>`<button data-v="${i.v}" onclick="go('${i.v}')"><span class="ni">${i.ic}</span> ${i.t}</button>`).join("")
+}
+function go(v){store.view=v;store.activeSR=null;render()}
+function render(){
+  document.querySelectorAll("#nav button").forEach(b=>{
+    b.classList.toggle("active",b.dataset.v===store.view||(store.activeSR&&((store.view==="fin-detail"&&b.dataset.v==="fin-list")||(store.view==="sales-detail"&&b.dataset.v==="sales-list"))))
+  });
+  const titles={"fin-list":"List of Buyback","fin-offsets":"Offset Record List","fin-dash":"Dashboard","fin-detail":"Buyback Record List","sales-list":"Buyback Record List","sales-offsets":"Offset Record List","sales-detail":"Buyback Record List"};
+  $("#pageTitle").textContent=titles[store.view]||"BCOS";
+  const map={"fin-list":renderFinList,"fin-detail":renderDetail,"fin-offsets":renderOffsets,"fin-dash":renderDash,"sales-list":renderSalesList,"sales-detail":renderDetail,"sales-offsets":renderOffsets};
+  $("#view").innerHTML=(map[store.view]||(()=>""))()
+}
+
+let finFilter="ALL";
+function renderFinList(){
+  const rows=store.sr.filter(s=>finFilter==="ALL"||s.status===finFilter).map(s=>{
+    const p=s.cms.find(c=>c.rebate!=null)||s.cms[0];const tr=totalRebate(s);const ed=s.status==="FOR_AROTH";
+    return `<tr class="clickable" onclick="openDetail('${s.id}','fin')">
+      <td class="strong">${s.dt}</td><td>${s.buybackDate}</td><td class="strong">${s.id}</td>
+      <td>${p.material||"-"}</td><td>${s.owner}</td><td>${s.arBuy}</td>
+      <td class="num">${s.amount.toLocaleString()}</td><td>${s.rebateCmRef}</td>
+      <td>${p.nature||"-"}</td><td><span class="mini">${p.detail||"-"}</span></td>
+      <td class="num ${tr<0?'neg':''}">${tr!==0?tr:"-"}</td><td class="strong">${s.offsetNo||"-"}</td>
+      <td onclick="event.stopPropagation()"><input class="cell-input" placeholder="AR-OTH No." value="${s.arothNo}" ${ed?"":"disabled"} onchange="setAroth('${s.id}','arothNo',this.value)"></td>
+      <td onclick="event.stopPropagation()"><input class="cell-input" placeholder="Write-off No." value="${s.writeOffNo}" ${ed?"":"disabled"} onchange="setAroth('${s.id}','writeOffNo',this.value)"></td>
+      <td onclick="event.stopPropagation()">${finStatusCell(s)}</td>
+    </tr>`}).join("");
+  return `<div class="toolbar">
+      <div class="search"><input placeholder="Search SR / owner / CM…" oninput="quickFilter(this.value,'finTbl')"><span class="go">⌕</span></div>
+      <div class="pill-filter">▤ <select class="status-filter" onchange="finFilter=this.value;render()">
+        <option value="ALL">All Status</option><option value="FOR_OFFSET">For Offset</option><option value="FOR_AROTH">For AR-OTH Creation</option><option value="FOR_GA_FILLING">For GA Filling</option><option value="RELEASED">Released</option></select></div>
+      <span class="lbl">From</span><div class="date-pick">▤ 09 Feb 2021</div><span class="lbl">To</span><div class="date-pick">▤ 09 Feb 2021</div>
+      <div class="spacer"></div><button class="btn" onclick="exportList()">EXPORT</button>
+    </div>
+    <div class="tablewrap"><table id="finTbl">
+      <thead class="purple"><tr>
+        <th>DT Approval ID</th><th>Buyback Date</th><th>Sales Return Ref. No.</th><th>Material Name</th><th>Buyback Owner</th><th>CM Reference No.</th><th>Buyback Amount</th><th>Rebate CM No.</th><th>CM Nature</th><th>CM Detail</th><th>Rebate Amount</th><th>Offset No.</th><th>Rebate Offset No.</th><th>Manual Write-off No.</th><th>Status</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="mini" style="margin-top:14px">Statuses are computed from IMEI ↔ CM matching. Open any <b>For Offset</b> row to process the offset directly, or a <b>For AR-OTH Creation</b> row to post the AR-OTH and write-off.</p>`;
+}
+function finStatusCell(s){
+  if(s.status==="FOR_AROTH"){return `<select class="badge-select" onchange="finConfirmAroth('${s.id}',this.value)"><option value="FOR_AROTH" selected>For AR-OTH Creation</option><option value="RELEASED">Released</option></select>`}
+  return statusBadge(s.status);
+}
+function setAroth(id,f,v){store.sr.find(s=>s.id===id)[f]=v.trim()}
+function finConfirmAroth(id,val){const s=store.sr.find(x=>x.id===id);if(val==="RELEASED"){if(!s.arothNo||!s.writeOffNo){toast("Enter Rebate Offset No. and Write-off No. first");render();return}s.status="RELEASED";toast(`${s.id} released · AR-OTH ${s.arothNo}`);render()}}
+
+function renderSalesList(){
+  const q=store.salesQuery.trim().toUpperCase();let body;
+  if(!store.salesSearched){
+    body=`<div class="empty"><div class="ic">⌕</div><div class="big">Search a Sales Return to begin</div><div>Enter an SR number (e.g. SR-BUY-0001) or a buyback owner, then open it to process the offset.</div></div>`;
+  }else{
+    const m=store.sr.filter(s=>s.status==="FOR_OFFSET"&&(s.id.includes(q)||s.owner.toUpperCase().includes(q)||s.arBuy.includes(q)));
+    if(!m.length){
+      body=`<div class="empty"><div class="ic">∅</div><div class="big">No open offset found for “${store.salesQuery}”</div><div>Only returns tagged <b>For Offset</b> appear here. Try another SR number or owner.</div></div>`;
+    }else{
+      const rows=m.map(s=>`<tr class="clickable" onclick="openDetail('${s.id}','sales')">
+        <td class="strong">${s.id}</td><td>${s.arBuy}</td><td>${s.owner}</td><td>${s.buybackDate}</td>
+        <td class="num">${s.amount.toLocaleString()}</td><td class="num neg">${totalRebate(s)}</td>
+        <td>${statusBadge(s.status)}</td><td><span class="btn ghost" style="padding:7px 14px">Open →</span></td></tr>`).join("");
+      body=`<div class="tablewrap"><table><thead class="navy"><tr><th>Sales Return Ref. No.</th><th>Buyback CM Ref.</th><th>Buyback Owner</th><th>Buyback Date</th><th>Buyback Amount</th><th>Rebate Amount</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+  }
+  return `<div class="toolbar">
+      <button class="queue-tab">Transaction Queue</button>
+      <div class="search"><input id="salesSearch" placeholder="Search SR number or owner…" value="${store.salesQuery}" onkeydown="if(event.key==='Enter')salesSearch()"><span class="go" onclick="salesSearch()">⌕</span></div>
+      <button class="btn" onclick="salesSearch()">Search</button>${store.salesSearched?`<button class="btn ghost" onclick="salesClear()">Clear</button>`:""}
+    </div>${body}`;
+}
+function salesSearch(){const v=$("#salesSearch");store.salesQuery=v?v.value:"";store.salesSearched=true;render()}
+function salesClear(){store.salesQuery="";store.salesSearched=false;render()}
+
+function openDetail(id,side){store.activeSR=id;store.view=side==="fin"?"fin-detail":"sales-detail";store.draftType="direct";store.draftCM="AR-INC-0001";render()}
+function backToList(){store.activeSR=null;store.view=store.role==="finance"?"fin-list":"sales-list";render()}
+
+function renderDetail(){
+  const s=store.sr.find(x=>x.id===store.activeSR);if(!s)return renderFinList();
+  const tr=totalRebate(s);
+  const filled=stepIndexFor(s.status);const pct=(filled/(STEPS.length-1))*100;
+  const stepsHTML=STEPS.map((st,i)=>{let c=i<filled?"done":(i===filled?"current":"");return `<div class="step ${c}"><div class="dot">✓</div><div class="lab">${st.lab}</div></div>`}).join("");
+  const imeiRows=s.cms.map(c=>`<tr><td class="strong">${c.doc}</td><td>${c.imei}</td><td>${c.nature}</td><td>${c.detail?`<span class="chip">${c.detail}</span>`:'<span class="chip">—</span>'}</td><td>${c.material}</td><td class="num ${c.rebate!=null?'neg':''}">${c.rebate!=null?c.rebate:"-"}</td></tr>`).join("");
+
+  const isDraft=s.status==="FOR_OFFSET";
+  const activeType=isDraft?store.draftType:(s.offsetType||"direct");
+  const activeCMid=isDraft?store.draftCM:s.availableCM;
+
+  let actionPanel="";
+  if(s.status==="FOR_OFFSET"){
+    actionPanel=offsetConfirmPanel(s);
+  }else if(s.status==="FOR_AROTH"){
+    const byTag=s.offsetBy?`<span class="who-tag">Offset by ${s.offsetBy}</span>`:"";
+    if(store.role==="finance"){actionPanel=arothPanel(s,byTag);}
+    else{actionPanel=`<div class="panel"><span class="confirm-head">Offset submitted ${byTag}</span><div class="note-done">Offset <b>${s.offsetNo}</b> recorded. Waiting on Finance to create the AR-OTH and post the write-off. This return now lives in the <b>Offset Record List</b>.</div></div>`;}
+  }else if(s.status==="RELEASED"){
+    actionPanel=`<div class="panel"><span class="confirm-head">Released</span><div class="note-done">Offset <b>${s.offsetNo}</b> · Rebate Offset No. <b>${s.arothNo}</b> · Write-off No. <b>${s.writeOffNo}</b>.<br>Buyback amount released to owner: <b>${peso(finalRelease(s))}</b>.</div></div>`;
+  }
+
+  return `<button class="back" onclick="backToList()">← Back to list</button>
+    <div class="panel"><span class="section-tag">Transaction Progress</span>
+      <div class="stepper"><div class="prog-line" style="width:calc(${pct}% - ${pct*0.68}px + 34px)"></div>${stepsHTML}</div></div>
+    <div class="panel">
+      <span class="section-tag">${s.status==="FOR_GA_FILLING"?"For GA Filling":"For Offset"}</span>
+      <div class="sr-title">${s.id}</div><div class="sr-sub">SALES RETURN REFERENCE NO.</div>
+      <div class="meta-bar">
+        <div><span>Buyback Owner</span><b>${s.owner}</b></div>
+        <div><span>Buyback Amount</span><b>${s.amount.toLocaleString()}</b></div>
+        <div><span>Sales Return Buyback CM</span><b>${s.arBuy}</b></div>
+        <div><span>Sales Return Approval</span><b>${s.dt}</b></div>
+      </div>
+      <div class="detail-grid">
+        <div class="tablewrap"><table class="imei-tbl"><thead class="navy"><tr><th>CM Doc No.</th><th>IMEI / SN</th><th>CM Nature</th><th>CM Details</th><th>Material Name</th><th>Rebate Amount</th></tr></thead><tbody>${imeiRows}</tbody></table></div>
+        <div class="rebate-box"><span>Total CM Rebate</span><b>${tr}</b></div>
+      </div>
+      <div class="settle">
+        ${settleCard(s,activeType,activeCMid)}
+        ${actionPanel}
+      </div>
+    </div>`;
+}
+
+function settleCard(s,type,cmId){
+  const tr=totalRebate(s);
+  if(type==='available'){
+    const cm=getCM(cmId);
+    const finalAfter=cm.amount-rebateAbs(s);
+    return `<div class="settle-card">
+      <div class="settle-row"><div class="k">Offset CM<small>${cm.id}</small></div><div class="v"><span class="peso">₱</span>${cm.amount.toLocaleString()}</div></div>
+      <div class="settle-row"><div class="k">Rebate Deduction<small>${matchedCount(s)} matched CM document(s)</small></div><div class="v neg"><span class="peso">₱</span>${tr}</div></div>
+      <div class="final-row"><div class="k">Final Amount After Rebate</div><div class="v"><span class="peso" style="color:inherit;opacity:.6">₱</span>${finalAfter.toLocaleString()}</div></div>
+      <div class="settle-foot">The SR buyback stays whole — full <b style="color:var(--ink)">${peso(s.amount)}</b> is released to the owner; the rebate is drawn from <b style="color:var(--ink)">${cm.id}</b>.</div>
+    </div>`;
+  }
+  return `<div class="settle-card">
+    <div class="settle-row"><div class="k">Buyback CM<small>${s.arBuy}</small></div><div class="v"><span class="peso">₱</span>${s.amount.toLocaleString()}</div></div>
+    <div class="settle-row"><div class="k">Rebate Offset<small>${s.cms.filter(c=>c.rebate!=null).map(c=>c.doc).join(" · ")||"—"}</small></div><div class="v neg"><span class="peso">₱</span>${tr}</div></div>
+    <div class="final-row"><div class="k">Buyback Amount for Released</div><div class="v"><span class="peso" style="color:inherit;opacity:.6">₱</span>${(s.amount-rebateAbs(s)).toLocaleString()}</div></div>
+  </div>`;
+}
+
+function offsetConfirmPanel(s){
+  const t=store.draftType;
+  const opts=AVAILABLE_CMS.map(c=>`<option value="${c.id}" ${store.draftCM===c.id?"selected":""}>${c.id}</option>`).join("");
+  const cm=getCM(store.draftCM);
+  const body = t==='direct' ? `
+      <div class="field-lab">Buyback CM No.</div><div class="cm-no">${s.arBuy}</div>
+      <p class="avail-note">Direct offset deducts the ${rebateAbs(s).toLocaleString()} rebate from the buyback. Released to owner: <b>${peso(s.amount-rebateAbs(s))}</b>.</p>
+    ` : `
+      <div class="field-lab">Select Available CM</div>
+      <select class="sel-cm" onchange="store.draftCM=this.value;render()">${opts}</select>
+      <div class="stat-row">
+        <div class="stat"><span>Available Amount</span><b>${peso(cm.amount)}</b></div>
+        <div class="stat"><span>Aging Days</span><b>${cm.aging} days</b></div>
+      </div>
+      <p class="avail-note">Rebate is absorbed by the selected CM balance; the SR buyback stays whole and full <b>${peso(s.amount)}</b> is released.</p>
+    `;
+  return `<div class="panel"><span class="confirm-head">Confirmation for Offset</span>
+    <div class="offset-opts">
+      <div class="opt ${t==='direct'?'sel':''}" onclick="setDraftType('direct')"><span>Direct Offset</span><span class="radio"></span></div>
+      <div class="opt ${t==='available'?'sel':''}" onclick="setDraftType('available')"><span>Available CM</span><span class="radio"></span></div>
+    </div>
+    ${body}
+    <button class="btn" style="width:100%;margin-top:16px" onclick="processOffset('${s.id}')">Process Offset</button>
+    <p class="avail-note">After processing, this transaction automatically moves to the <b>Offset Record List</b> and Finance sees status <b>For AR-OTH Creation</b>.</p>
+  </div>`;
+}
+function setDraftType(t){store.draftType=t;render()}
+
+function arothPanel(s,byTag){
+  return `<div class="panel"><span class="confirm-head">AR-OTH Creation ${byTag||""}</span>
+    <div class="note-done" style="margin-bottom:16px">Offset <b>${s.offsetNo}</b> completed${s.offsetType==='available'?` via available CM <b>${s.availableCM}</b>`:''}. Enter the AR-OTH and write-off references to release.</div>
+    <div class="aroth-form">
+      <div><label>Rebate Offset No. (AR-OTH)</label><input id="arothInput" placeholder="e.g. AR-OTH-0001" value="${s.arothNo}"></div>
+      <div><label>Manual Write-off No.</label><input id="woInput" placeholder="e.g. 1234323" value="${s.writeOffNo}"></div>
+      <button class="btn" style="width:100%" onclick="submitAroth('${s.id}')">Create AR-OTH & Release</button>
+    </div></div>`;
+}
+function submitAroth(id){const s=store.sr.find(x=>x.id===id);const a=$("#arothInput").value.trim(),w=$("#woInput").value.trim();if(!a||!w){toast("Enter both the AR-OTH No. and the Write-off No.");return}s.arothNo=a;s.writeOffNo=w;s.status="RELEASED";toast(`${s.id} released · AR-OTH ${a}`);render()}
+function processOffset(id){const s=store.sr.find(x=>x.id===id);s.offsetType=store.draftType;s.availableCM=store.draftType==="available"?store.draftCM:null;s.offsetNo="OFFSET-"+String(store.offsetSeq++).padStart(4,"0");s.offsetDate=todayStr();s.offsetBy=USERS[store.role].role;s.status="FOR_AROTH";toast(`Offset processed by ${s.offsetBy} · ${s.offsetNo} created`);render()}
+function todayStr(){const d=new Date();return `${d.getMonth()+1}-${String(d.getDate()).padStart(2,'0')}-${d.getFullYear()}`}
+
+function renderOffsets(){
+  const recs=store.sr.filter(s=>s.offsetNo).sort((a,b)=>a.offsetNo.localeCompare(b.offsetNo));let body;
+  if(!recs.length){
+    body=`<div class="empty"><div class="ic">⇄</div><div class="big">No offsets recorded yet</div><div>Once an offset is processed from a <b>For Offset</b> return (by Sales or Finance), it appears here with its OFFSET number.</div></div>`;
+  }else{
+    const rows=recs.map(s=>`<tr>
+      <td class="strong">${s.offsetNo}</td><td>${s.offsetDate||"—"}</td><td>${s.buybackDate}</td><td>${s.owner}</td>
+      <td>${s.id}</td><td>${s.arBuy}</td><td class="num">${s.amount.toLocaleString()}</td><td class="num neg">${rebateAbs(s)}</td>
+      <td>${s.offsetType==='direct'?s.arBuy:"-"}</td><td>${s.offsetType==='available'?s.availableCM:"-"}</td><td class="num pos">${finalRelease(s).toLocaleString()}</td></tr>`).join("");
+    body=`<div class="tablewrap"><table><thead class="purple"><tr><th>Offset No.</th><th>Offset Date</th><th>Buyback Date</th><th>Buyback Owner</th><th>Sales Return Ref. No.</th><th>Buyback CM Ref. No.</th><th>Buyback Amount</th><th>Rebate Amount</th><th>Direct Offset</th><th>CM Available</th><th>Final Amount CM Release</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  return `<div class="toolbar"><button class="queue-tab">Transaction Queue</button><div class="search"><input placeholder="Search…" oninput="quickFilter(this.value,'offTbl')"><span class="go">⌕</span></div><span class="lbl">From</span><div class="date-pick">▤ 09 Feb 2021</div><span class="lbl">To</span><div class="date-pick">▤ 09 Feb 2021</div></div><div id="offTbl">${body}</div>`;
+}
+
+function renderDash(){
+  const all=store.sr;const count=st=>all.filter(s=>s.status===st).length;
+  const totalBuyback=all.reduce((a,s)=>a+s.amount,0);const totalRebateAll=all.reduce((a,s)=>a+rebateAbs(s),0);
+  const released=all.filter(s=>s.status==="RELEASED");const totalReleased=released.reduce((a,s)=>a+finalRelease(s),0);
+  const dist=[{k:"For Offset",n:count("FOR_OFFSET"),c:"#FFC61A"},{k:"For AR-OTH Creation",n:count("FOR_AROTH"),c:"#8d8b98"},{k:"For GA Filling",n:count("FOR_GA_FILLING"),c:"#E9C766"},{k:"Released",n:count("RELEASED"),c:"#1f1e25"}];
+  const maxN=Math.max(1,...dist.map(d=>d.n));
+  const bars=dist.map(d=>`<div class="barrow"><div class="bl">${d.k}</div><div class="bartrack"><div class="barfill" style="width:${(d.n/maxN)*100}%;background:${d.c}"></div></div><div class="bn">${d.n}</div></div>`).join("");
+  const total=all.length||1;let acc=0;const segs=dist.map(d=>{const f=d.n/total;const s=`${d.c} ${acc*360}deg ${(acc+f)*360}deg`;acc+=f;return s}).join(",");
+  const legend=dist.map(d=>`<div><span class="sw" style="background:${d.c}"></span>${d.k} · <b>${d.n}</b></div>`).join("");
+  return `<div class="kpis">
+      <div class="kpi"><div class="kl">Sales Returns</div><div class="kv">${all.length}</div><div class="kd">in the offset pipeline</div></div>
+      <div class="kpi"><div class="kl">Total Buyback</div><div class="kv">${peso(totalBuyback)}</div><div class="kd">across all returns</div></div>
+      <div class="kpi"><div class="kl">Total CM Rebate</div><div class="kv neg">${peso(totalRebateAll)}</div><div class="kd">matched to credit memos</div></div>
+      <div class="kpi"><div class="kl">Released Amount</div><div class="kv pos">${peso(totalReleased)}</div><div class="kd">${released.length} return(s) released</div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="panel"><p class="card-h">Status distribution</p><p class="card-s">Where returns sit in the offset workflow right now.</p>${bars}</div>
+      <div class="panel"><p class="card-h">Pipeline mix</p><p class="card-s">Share of returns by status.</p>
+        <div class="donut-wrap"><div style="width:150px;height:150px;border-radius:50%;background:conic-gradient(${segs});position:relative"><div style="position:absolute;inset:34px;background:#fff;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:20px">${all.length}</div></div><div class="legend">${legend}</div></div>
+      </div>
+    </div>`;
+}
+
+function quickFilter(q,tblId){q=q.trim().toLowerCase();const sc=document.getElementById(tblId);if(!sc)return;sc.querySelectorAll("tbody tr").forEach(tr=>{tr.style.display=tr.textContent.toLowerCase().includes(q)?"":"none"})}
+function exportList(){
+  const heads=["DT Approval ID","Buyback Date","SR Ref","Owner","CM Ref","Buyback Amount","Rebate CM","Rebate Amount","Offset No","AR-OTH No","Write-off No","Status"];
+  const lines=[heads.join(",")];
+  store.sr.forEach(s=>lines.push([s.dt,s.buybackDate,s.id,s.owner,s.arBuy,s.amount,s.rebateCmRef,totalRebate(s),s.offsetNo||"",s.arothNo||"",s.writeOffNo||"",STATUS_META[s.status].label].join(",")));
+  const b=new Blob([lines.join("\n")],{type:"text/csv"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="bcos_buyback_list.csv";a.click();toast("Buyback list exported (CSV)");
+}
+</script>
+</body>
+</html>

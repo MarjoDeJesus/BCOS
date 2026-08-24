@@ -885,7 +885,7 @@ async function saveFinanceField(id,field,value){
 function renderSalesList(){
   const q=store.salesQuery.trim().toUpperCase();let body;
   if(!store.salesSearched){
-    body=`<div class="empty"><div class="ic">⌕</div><div class="big">Search a Sales Return to begin</div><div>Enter an SR number (e.g. SR-BUY-0001) or a buyback owner, then open it to process the offset.</div></div>`;
+    body=`<div class="empty"><div class="ic">⌕</div><div class="big">Search a Sales Return to begin</div><div>Click the search button or get the SR number in the Sales Return Approval (e.g. SR-BUY-0001), then open it to process the offset.</div></div>`;
   }else{
     const m=store.sr.filter(s=>s.status==="FOR_OFFSET"&&(s.id.includes(q)||s.owner.toUpperCase().includes(q)||s.arBuy.includes(q)));
     if(!m.length){

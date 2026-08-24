@@ -393,189 +393,217 @@ const store={
 // REPLACE THIS WITH YOUR APPS SCRIPT WEB APP URL
 const FINANCE_API_URL = "https://script.google.com/macros/s/AKfycbzzfNZWn1fJF39Jpakri61PzEUeu2P99e9JdGmHXWJDDv9dsUHrozCdWd14YOodMShr/exec";
   
+// ============================================================================
+// LOAD FINANCE RECORD + REBATE RECORD
+// ============================================================================
+
 async function loadFinanceRecord() {
 
   try {
 
     console.log(
-      "Loading Finance Record..."
+      "Loading Finance + Rebate Records..."
     );
 
+
     const response =
-      await fetch(FINANCE_API_URL);
+      await fetch(
+        FINANCE_API_URL,
+        {
+          cache: "no-store"
+        }
+      );
+
 
     if (!response.ok) {
 
       throw new Error(
-        "HTTP error: " +
+        "HTTP " +
         response.status
       );
 
     }
 
+
     const result =
       await response.json();
+
 
     if (!result.success) {
 
       throw new Error(
         result.message ||
-        "Unable to load Finance Record"
+        "BCOS API returned an error"
       );
 
     }
 
 
-    // ========================================================
-    // CONVERT GOOGLE SHEET DATA
-    // TO EXISTING BCOS store.sr FORMAT
-    // ========================================================
+    // ========================================================================
+    // 1. GROUP REBATE RECORD BY SR-BUY
+    // ========================================================================
+    //
+    // Example:
+    //
+    // SR-BUY-0001
+    //    ├── CM-001
+    //    ├── CM-002
+    //    └── CM-003
+    //
+    // ========================================================================
+
+    const rebateBySR =
+      new Map();
+
+
+    (
+      result.rebateRecords || []
+    ).forEach(row => {
+
+
+      const srRef =
+        String(
+          row.srRef || ""
+        ).trim();
+
+
+      if (!srRef) {
+        return;
+      }
+
+
+      if (
+        !rebateBySR.has(srRef)
+      ) {
+
+        rebateBySR.set(
+          srRef,
+          []
+        );
+
+      }
+
+
+      rebateBySR
+        .get(srRef)
+        .push({
+
+          // REBATE RECORD Column E
+          doc:
+            row.cmDoc || "-",
+
+
+          // REBATE RECORD Column F
+          imei:
+            row.imei || "-",
+
+
+          // REBATE RECORD Column G
+          nature:
+            row.cmNature || "-",
+
+
+          // REBATE RECORD Column H
+          detail:
+            row.cmDetails || "",
+
+
+          // REBATE RECORD Column I
+          material:
+            row.materialName || "-",
+
+
+          // REBATE RECORD Column J
+          rebate:
+            parseBCOSNumber(
+              row.rebateAmount
+            )
+
+        });
+
+    });
+
+
+    // ========================================================================
+    // 2. FINANCE RECORD → BUYBACK LIST
+    // ========================================================================
 
     store.sr =
-      result.records.map(row => {
+      (
+        result.financeRecords || []
+      )
+      .map(row => {
 
 
-        // ----------------------------------------
-        // BUYBACK AMOUNT
-        // ----------------------------------------
-
-        const buybackAmount =
-          parseBCOSNumber(
-            row.buybackAmount
-          );
+        const srRef =
+          row.srRef || "";
 
 
-        // ----------------------------------------
-        // REBATE AMOUNT
-        // ----------------------------------------
+        // ====================================================================
+        // REBATE RECORD DATA FOR THIS SR-BUY
+        // ====================================================================
 
-        const rebateAmount =
-          parseBCOSNumber(
-            row.rebateAmount
-          );
-
-
-        // ----------------------------------------
-        // STATUS
-        // ----------------------------------------
-
-        const status =
-          convertFinanceStatus(
-            row.status
-          );
+        const rebateRows =
+          rebateBySR.get(srRef) || [];
 
 
         return {
 
-          // ======================================
-          // SALES RETURN REF
-          // ======================================
-
+          // FINANCE RECORD A
           id:
-            row.srRef || "",
+            srRef,
 
 
-          // ======================================
-          // BUYBACK CM
-          // ======================================
-
+          // FINANCE RECORD F
           arBuy:
             row.buybackCM || "-",
 
 
-          // ======================================
-          // DT APPROVAL
-          // ======================================
-
+          // FINANCE RECORD B
           dt:
             row.dtApproval || "-",
 
 
-          // ======================================
-          // BUYBACK DATE
-          // ======================================
-
+          // FINANCE RECORD C
           buybackDate:
             row.buybackDate || "-",
 
 
-          // ======================================
-          // BUYBACK OWNER
-          // ======================================
-
+          // FINANCE RECORD E
           owner:
             row.buybackOwner || "-",
 
 
-          // ======================================
-          // BUYBACK AMOUNT
-          // ======================================
-
+          // FINANCE RECORD G
           amount:
-            buybackAmount,
+            parseBCOSNumber(
+              row.buybackAmount
+            ),
 
 
-          // ======================================
-          // REBATE CM NO.
-          // ======================================
-
+          // FINANCE RECORD H
           rebateCmRef:
             row.rebateCM || "-",
 
 
-          // ======================================
-          // CM INFORMATION
+          // ==================================================================
+          // DETAIL TABLE DATA
           //
-          // For now SINGLE value only.
-          // Multiple IMEI/CM will be added later.
-          // ======================================
+          // NOW COMES FROM REBATE RECORD
+          // ==================================================================
 
-          cms: [
-
-            {
-
-              doc:
-                row.rebateCM || "-",
+          cms:
+            rebateRows,
 
 
-              imei:
-                "",
-
-
-              nature:
-                row.cmNature || "-",
-
-
-              detail:
-                row.cmDetails || "",
-
-
-              material:
-                row.materialName || "-",
-
-
-              rebate:
-                rebateAmount === 0
-                  ? null
-                  : rebateAmount
-
-            }
-
-          ],
-
-
-          // ======================================
-          // STATUS
-          // ======================================
-
+          // FINANCE RECORD O
           status:
-            status,
+            convertFinanceStatus(
+              row.status
+            ),
 
 
-          // ======================================
-          // OFFSET RECORD
-          // ======================================
-
+          // FINANCE RECORD L
           offsetNo:
             row.offsetNo || null,
 
@@ -588,18 +616,12 @@ async function loadFinanceRecord() {
             null,
 
 
-          // ======================================
-          // REBATE OFFSET / AR-OTH NO.
-          // ======================================
-
+          // FINANCE RECORD M
           arothNo:
             row.rebateOffsetNo || "",
 
 
-          // ======================================
-          // MANUAL WRITE-OFF NO.
-          // ======================================
-
+          // FINANCE RECORD N
           writeOffNo:
             row.manualWriteOffNo || "",
 
@@ -609,13 +631,61 @@ async function loadFinanceRecord() {
 
         };
 
-      });
+      })
+
+      // Remove blank SR records
+      .filter(
+        s => s.id
+      );
 
 
     console.log(
-      "Finance Record loaded:",
+      "Finance Records:",
       store.sr
     );
+
+
+    console.log(
+      "Rebate Records:",
+      result.rebateRecords
+    );
+
+
+    // Refresh UI if already logged in
+    if (
+      store.role &&
+      store.view
+    ) {
+
+      render();
+
+    }
+
+  }
+
+  catch (error) {
+
+    console.error(
+      "BCOS DATA LOAD ERROR:",
+      error
+    );
+
+
+    if (
+      document.querySelector(
+        "#toasts"
+      )
+    ) {
+
+      toast(
+        "Unable to load BCOS Google Sheet data"
+      );
+
+    }
+
+  }
+
+}
 
 
     // REFRESH SCREEN

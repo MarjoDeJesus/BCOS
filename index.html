@@ -656,8 +656,13 @@ async function loadFinanceRecord() {
       store.role &&
       store.view
     ) {
+      render();
+    }
 
-     
+  } catch (error) {
+    console.error("BCOS data loading error:", error);
+  }
+}
 
 // ============================================================
 // CONVERT GOOGLE SHEET AMOUNT

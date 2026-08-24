@@ -360,30 +360,397 @@ document.querySelectorAll(".logo-slot").forEach(slot=>{
 // ------------------------------------------------------------
 // JS PART B — USERS + MOCK DATABASE
 // IMPORTANT: This is currently MOCK DATA.
-// Later, this is one of the main areas to connect to Google Sheets.
+// connected to google sheets
 // ------------------------------------------------------------
 const USERS={finance:{name:"JOHN",role:"FINANCE"},sales:{name:"Jane",role:"SALES"}};
 const store={
-  role:null,view:null,activeSR:null,salesSearched:false,salesQuery:"",offsetSeq:1,
-  draftType:"direct",draftCM:"AR-INC-0001",
-  sr:[
-    {id:"SR-BUY-0001",arBuy:"AR-BUY-0001",dt:"202608022635",buybackDate:"8-02-2026",owner:"COLDTISPAYR",amount:5000,rebateCmRef:"AR-PRI-0001",
-      cms:[
-        {doc:"CM-001",imei:"086655532934324",nature:"Sell-In",detail:"Phone Sell-In Rebate October 1, 2025 to January 10, 2026",material:"HP C85 4G (6+128) RMX5566-KINGFISHER BLUE",rebate:-100},
-        {doc:"CM-002",imei:"086655532934325",nature:"EOL",detail:"Note 60x (3+64) PPD (June 24, 2025 - onwards)",material:"HP Note 60x (3+64) RMX3938-MARBLE BLACK",rebate:-120},
-        {doc:"CM-003",imei:"086655532934336",nature:"Sell-in (R-Club without BV)",detail:"R-Club Sell-In Rebate May 2026",material:"HP Note 70 (4+128) RMX5313-BEACH GOLD",rebate:-50},
-        {doc:"-",imei:"086655532934233",nature:"-",detail:"",material:"HP Note 70 (4+128) RMX5313-BEACH GOLD",rebate:null}
-      ],status:"FOR_OFFSET",offsetNo:null,offsetType:null,availableCM:null,arothNo:"",writeOffNo:"",offsetBy:null},
-    {id:"SR-BUY-0002",arBuy:"AR-BUY-0002",dt:"202607922636",buybackDate:"7-09-2026",owner:"VSTICS",amount:4000,rebateCmRef:"AR-DEF-0001",
-      cms:[
-        {doc:"CM-011",imei:"086655532940011",nature:"EOL",detail:"Note 60x (3+64) End-of-Life Rebate February 2026",material:"HP Note 60x (3+64) RMX3938-MARBLE BLACK",rebate:-100},
-        {doc:"CM-012",imei:"086655532940012",nature:"Sell-In",detail:"Sell-In Rebate January 15, 2026 to March 30, 2026",material:"HP C85 4G (6+128) RMX5566-KINGFISHER BLUE",rebate:-50}
-      ],status:"FOR_OFFSET",offsetNo:null,offsetType:null,availableCM:null,arothNo:"",writeOffNo:"",offsetBy:null},
-    {id:"SR-BUY-0003",arBuy:"AR-BUY-0003",dt:"202606922637",buybackDate:"8-02-2026",owner:"COBLE MUGI",amount:3000,rebateCmRef:"-",
-      cms:[{doc:"-",imei:"086655532955501",nature:"-",detail:"",material:"HP Note 70 (4+128) RMX5313-BEACH GOLD",rebate:null}],
-      status:"FOR_GA_FILLING",offsetNo:null,offsetType:null,availableCM:null,arothNo:"",writeOffNo:"",offsetBy:null}
-  ]
+
+  role:null,
+
+  view:null,
+
+  activeSR:null,
+
+  salesSearched:false,
+
+  salesQuery:"",
+
+  offsetSeq:1,
+
+  draftType:"direct",
+
+  draftCM:"AR-INC-0001",
+
+  // DATA FROM GOOGLE SHEETS
+  sr:[]
+
 };
+  // ============================================================
+// GOOGLE SHEETS CONNECTION
+// FINANCE RECORD → BCOS PROTOTYPE
+// ============================================================
+
+// REPLACE THIS WITH YOUR APPS SCRIPT WEB APP URL
+const FINANCE_API_URL =
+  "https://script.google.com/macros/s/AKfycbzzfNZWn1fJF39Jpakri61PzEUeu2P99e9JdGmHXWJDDv9dsUHrozCdWd14YOodMShr/exec
+";
+  
+async function loadFinanceRecord() {
+
+  try {
+
+    console.log(
+      "Loading Finance Record..."
+    );
+
+    const response =
+      await fetch(FINANCE_API_URL);
+
+    if (!response.ok) {
+
+      throw new Error(
+        "HTTP error: " +
+        response.status
+      );
+
+    }
+
+    const result =
+      await response.json();
+
+    if (!result.success) {
+
+      throw new Error(
+        result.message ||
+        "Unable to load Finance Record"
+      );
+
+    }
+
+
+    // ========================================================
+    // CONVERT GOOGLE SHEET DATA
+    // TO EXISTING BCOS store.sr FORMAT
+    // ========================================================
+
+    store.sr =
+      result.records.map(row => {
+
+
+        // ----------------------------------------
+        // BUYBACK AMOUNT
+        // ----------------------------------------
+
+        const buybackAmount =
+          parseBCOSNumber(
+            row.buybackAmount
+          );
+
+
+        // ----------------------------------------
+        // REBATE AMOUNT
+        // ----------------------------------------
+
+        const rebateAmount =
+          parseBCOSNumber(
+            row.rebateAmount
+          );
+
+
+        // ----------------------------------------
+        // STATUS
+        // ----------------------------------------
+
+        const status =
+          convertFinanceStatus(
+            row.status
+          );
+
+
+        return {
+
+          // ======================================
+          // SALES RETURN REF
+          // ======================================
+
+          id:
+            row.srRef || "",
+
+
+          // ======================================
+          // BUYBACK CM
+          // ======================================
+
+          arBuy:
+            row.buybackCM || "-",
+
+
+          // ======================================
+          // DT APPROVAL
+          // ======================================
+
+          dt:
+            row.dtApproval || "-",
+
+
+          // ======================================
+          // BUYBACK DATE
+          // ======================================
+
+          buybackDate:
+            row.buybackDate || "-",
+
+
+          // ======================================
+          // BUYBACK OWNER
+          // ======================================
+
+          owner:
+            row.buybackOwner || "-",
+
+
+          // ======================================
+          // BUYBACK AMOUNT
+          // ======================================
+
+          amount:
+            buybackAmount,
+
+
+          // ======================================
+          // REBATE CM NO.
+          // ======================================
+
+          rebateCmRef:
+            row.rebateCM || "-",
+
+
+          // ======================================
+          // CM INFORMATION
+          //
+          // For now SINGLE value only.
+          // Multiple IMEI/CM will be added later.
+          // ======================================
+
+          cms: [
+
+            {
+
+              doc:
+                row.rebateCM || "-",
+
+
+              imei:
+                "",
+
+
+              nature:
+                row.cmNature || "-",
+
+
+              detail:
+                row.cmDetails || "",
+
+
+              material:
+                row.materialName || "-",
+
+
+              rebate:
+                rebateAmount === 0
+                  ? null
+                  : rebateAmount
+
+            }
+
+          ],
+
+
+          // ======================================
+          // STATUS
+          // ======================================
+
+          status:
+            status,
+
+
+          // ======================================
+          // OFFSET RECORD
+          // ======================================
+
+          offsetNo:
+            row.offsetNo || null,
+
+
+          offsetType:
+            null,
+
+
+          availableCM:
+            null,
+
+
+          // ======================================
+          // REBATE OFFSET / AR-OTH NO.
+          // ======================================
+
+          arothNo:
+            row.rebateOffsetNo || "",
+
+
+          // ======================================
+          // MANUAL WRITE-OFF NO.
+          // ======================================
+
+          writeOffNo:
+            row.manualWriteOffNo || "",
+
+
+          offsetBy:
+            null
+
+        };
+
+      });
+
+
+    console.log(
+      "Finance Record loaded:",
+      store.sr
+    );
+
+
+    // REFRESH SCREEN
+    render();
+
+
+  }
+
+  catch (error) {
+
+    console.error(
+      "Unable to load Finance Record:",
+      error
+    );
+
+
+    toast(
+      "Unable to load Finance Record"
+    );
+
+  }
+
+}
+
+
+
+// ============================================================
+// CONVERT GOOGLE SHEET AMOUNT
+//
+// Handles:
+// 5000
+// 5,000
+// ₱5,000
+// -100
+// ============================================================
+
+function parseBCOSNumber(value) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+
+    return 0;
+
+  }
+
+
+  const cleaned =
+    String(value)
+
+      .replace(/₱/g, "")
+
+      .replace(/,/g, "")
+
+      .trim();
+
+
+  const number =
+    Number(cleaned);
+
+
+  return isNaN(number)
+    ? 0
+    : number;
+
+}
+
+
+
+// ============================================================
+// CONVERT FINANCE RECORD STATUS
+// TO STATUS USED BY PROTOTYPE
+// ============================================================
+
+function convertFinanceStatus(status) {
+
+  const value =
+    String(status || "")
+      .trim()
+      .toUpperCase();
+
+
+  if (
+    value === "FOR OFFSET"
+  ) {
+
+    return "FOR_OFFSET";
+
+  }
+
+
+  if (
+    value === "FOR AR-OTH CREATION"
+  ) {
+
+    return "FOR_AROTH";
+
+  }
+
+
+  if (
+    value === "FOR GA FILING"
+  ) {
+
+    return "FOR_GA_FILLING";
+
+  }
+
+
+  if (
+    value === "RELEASED"
+  ) {
+
+    return "RELEASED";
+
+  }
+
+
+  if (
+    value === "BUYBACK PROCESS"
+  ) {
+
+    return "BUYBACK_PROCESS";
+
+  }
+
+
+  // DEFAULT STATUS FOR NEW SR-BUY
+  return "BUYBACK_PROCESS";
+
+}
 // ------------------------------------------------------------
 // JS PART C — AVAILABLE CM MOCK DATA
 // Later: load these records from Google Sheets.
@@ -699,6 +1066,7 @@ function exportList(){
   store.sr.forEach(s=>lines.push([s.dt,s.buybackDate,s.id,s.owner,s.arBuy,s.amount,s.rebateCmRef,totalRebate(s),s.offsetNo||"",s.arothNo||"",s.writeOffNo||"",STATUS_META[s.status].label].join(",")));
   const b=new Blob([lines.join("\n")],{type:"text/csv"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="bcos_buyback_list.csv";a.click();toast("Buyback list exported (CSV)");
 }
+  loadFinanceRecord();
 </script>
 </body>
 </html>

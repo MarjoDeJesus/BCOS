@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BCOS — Buyback CM Offset System</title>
 <style>
+  /* ============================================================
+     LAYER 1 — CSS / DESIGN
+     Controls the visual appearance of BCOS: colors, layout,
+     login screen, sidebar, tables, forms, dashboard, etc.
+     ============================================================ */
   :root{
     --dark:#141318;--dark-2:#1f1e25;--dark-3:#2a2831;
     --sidebar:#141318;--sidebar-2:#1c1b22;--sidebar-active:#2a2831;
@@ -25,11 +30,17 @@
   input,select{font-family:inherit}
   ::selection{background:#ffe9a0}
 
+  /* ------------------------------------------------------------
+     CSS PART A — LOGO DESIGN
+     ------------------------------------------------------------ */
   /* LOGO */
   .logo-mark{width:52px;height:52px;flex:none;display:block}
   .logo-mark.lg{width:58px;height:58px}
   .logo-mark svg{width:100%;height:100%;display:block}
 
+  /* ------------------------------------------------------------
+     CSS PART B — LOGIN SCREEN
+     ------------------------------------------------------------ */
   #login{position:fixed;inset:0;display:grid;place-items:center;
     background:radial-gradient(1100px 560px at 18% -12%, #3a2f10 0%, transparent 58%),radial-gradient(900px 520px at 112% 120%, #2a2620 0%, transparent 55%),linear-gradient(158deg,#131217,#211f28);z-index:50}
   .login-card{width:min(880px,92vw);background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.45);overflow:hidden;display:grid;grid-template-columns:1fr 1fr}
@@ -52,6 +63,9 @@
   .role-card span{font-size:12px;color:var(--muted)}
   .role-card .arw{margin-left:auto;color:var(--muted);font-size:18px}
 
+  /* ------------------------------------------------------------
+     CSS PART C — MAIN APP / SIDEBAR / TOP BAR
+     ------------------------------------------------------------ */
   #app{display:none;min-height:100vh}
   .shell{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
   .sidebar{background:linear-gradient(180deg,var(--sidebar),var(--sidebar-2));color:#cdccd4;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh}
@@ -82,6 +96,9 @@
   .user-menu button:hover{background:var(--bg)}
   .content{padding:26px 30px 60px}
 
+  /* ------------------------------------------------------------
+     CSS PART D — SEARCH, FILTERS & BUTTONS
+     ------------------------------------------------------------ */
   .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:20px}
   .search{display:flex;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .search input{border:none;outline:none;padding:11px 14px;width:280px;font-size:13px;background:transparent}
@@ -100,6 +117,9 @@
   .spacer{flex:1}
   .queue-tab{background:var(--dark-2);color:#fff;border-radius:9px;padding:11px 18px;font-size:12.5px;font-weight:700}
 
+  /* ------------------------------------------------------------
+     CSS PART E — TABLES & STATUS BADGES
+     ------------------------------------------------------------ */
   .tablewrap{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto}
   table{border-collapse:collapse;width:100%;min-width:820px}
   thead.purple th{background:linear-gradient(180deg,#26242d,#1a191f);color:#fff;font-size:11.5px;letter-spacing:.4px;text-transform:uppercase;padding:16px 14px;text-align:left;font-weight:700;white-space:nowrap;vertical-align:middle;border-bottom:2px solid var(--gold)}
@@ -127,6 +147,9 @@
   .empty .big{font-size:15px;color:var(--ink-2);font-weight:600;margin-bottom:6px}
   .empty .ic{font-size:34px;margin-bottom:10px;opacity:.55}
 
+  /* ------------------------------------------------------------
+     CSS PART F — TRANSACTION DETAIL / OFFSET PROCESSING
+     ------------------------------------------------------------ */
   .back{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);font-weight:700;font-size:13px;margin-bottom:16px}
   .back:hover{color:var(--gold-deep)}
   .panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 24px;margin-bottom:18px}
@@ -187,6 +210,9 @@
   .aroth-form input:focus{border-color:var(--gold-deep);box-shadow:0 0 0 3px rgba(255,198,26,.18)}
   .note-done{background:#fff6dd;border:1px solid #f0e0a4;color:#7a5b00;border-radius:10px;padding:14px 16px;font-size:12.5px;line-height:1.5}
 
+  /* ------------------------------------------------------------
+     CSS PART G — DASHBOARD
+     ------------------------------------------------------------ */
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
   .kpi{background:#fff;border-radius:14px;box-shadow:var(--shadow-sm);padding:18px 20px;border-top:3px solid var(--gold)}
   .kpi .kl{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
@@ -205,6 +231,9 @@
   .legend div{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2)}
   .legend .sw{width:12px;height:12px;border-radius:4px}
 
+  /* ------------------------------------------------------------
+     CSS PART H — NOTIFICATIONS / TOASTS
+     ------------------------------------------------------------ */
   #toasts{position:fixed;right:24px;bottom:24px;display:flex;flex-direction:column;gap:10px;z-index:60}
   .toast{background:var(--dark-2);color:#fff;padding:14px 18px;border-radius:11px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.28);display:flex;align-items:center;gap:12px;animation:slidein .25s ease;max-width:340px}
   .toast .ti{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--gold-2),var(--gold-deep));display:grid;place-items:center;font-size:14px;color:var(--on-gold);flex:none}
@@ -221,6 +250,12 @@
 </head>
 <body>
 
+<!-- ============================================================
+     LAYER 2 — HTML / PAGE STRUCTURE
+     This section contains the actual visible BCOS page elements.
+     ============================================================ -->
+
+<!-- HTML PART A — REUSABLE BCOS LOGO -->
 <!-- reusable logo (defs id-scoped so it can appear twice) -->
 <template id="bcosLogo">
   <span class="logo-mark">
@@ -245,6 +280,7 @@
   </span>
 </template>
 
+<!-- HTML PART B — LOGIN SCREEN -->
 <div id="login">
   <div class="login-card">
     <div class="login-brand">
@@ -274,6 +310,7 @@
   </div>
 </div>
 
+<!-- HTML PART C — MAIN BCOS APPLICATION -->
 <div id="app">
   <div class="shell">
     <aside class="sidebar">
@@ -301,9 +338,18 @@
   </div>
 </div>
 
+<!-- HTML PART D — POP-UP NOTIFICATION CONTAINER -->
 <div id="toasts"></div>
 
 <script>
+/* ============================================================
+   LAYER 3 — JAVASCRIPT / SYSTEM LOGIC
+   Controls BCOS data, navigation, search, offset processing,
+   Finance/Sales actions, status changes, and dashboard.
+   ============================================================ */
+// ------------------------------------------------------------
+// JS PART A — LOGO INITIALIZATION
+// ------------------------------------------------------------
 // stamp the logo into every slot
 document.querySelectorAll(".logo-slot").forEach(slot=>{
   const node=document.getElementById("bcosLogo").content.cloneNode(true);
@@ -311,6 +357,11 @@ document.querySelectorAll(".logo-slot").forEach(slot=>{
   slot.replaceWith(node);
 });
 
+// ------------------------------------------------------------
+// JS PART B — USERS + MOCK DATABASE
+// IMPORTANT: This is currently MOCK DATA.
+// Later, this is one of the main areas to connect to Google Sheets.
+// ------------------------------------------------------------
 const USERS={finance:{name:"JOHN",role:"FINANCE"},sales:{name:"Jane",role:"SALES"}};
 const store={
   role:null,view:null,activeSR:null,salesSearched:false,salesQuery:"",offsetSeq:1,
@@ -333,6 +384,10 @@ const store={
       status:"FOR_GA_FILLING",offsetNo:null,offsetType:null,availableCM:null,arothNo:"",writeOffNo:"",offsetBy:null}
   ]
 };
+// ------------------------------------------------------------
+// JS PART C — AVAILABLE CM MOCK DATA
+// Later: load these records from Google Sheets.
+// ------------------------------------------------------------
 const AVAILABLE_CMS=[
   {id:"AR-INC-0001",amount:10000,aging:56},
   {id:"AR-PRI-0003",amount:8000,aging:40},
@@ -348,6 +403,10 @@ const rebateAbs=sr=>Math.abs(totalRebate(sr));
 const matchedCount=sr=>sr.cms.filter(c=>c.rebate!=null).length;
 const finalRelease=sr=>sr.offsetType==="available"?sr.amount:sr.amount-rebateAbs(sr);
 
+// ------------------------------------------------------------
+// JS PART D — STATUS & TRANSACTION PROGRESS SETTINGS
+// Edit status names / labels here.
+// ------------------------------------------------------------
 const STATUS_META={
   BUYBACK_PROCESS:{label:"Buyback Process",cls:"b-process"},
   FOR_OFFSET:{label:"For Offset",cls:"b-offset"},
@@ -364,6 +423,9 @@ const STEPS=[
 function stepIndexFor(s){if(s==="FOR_OFFSET")return 1;if(s==="FOR_AROTH")return 2;if(s==="FOR_GA_FILLING")return 3;if(s==="RELEASED")return 5;return 0}
 function toast(msg){const t=document.createElement("div");t.className="toast";t.innerHTML=`<span class="ti">✓</span><span>${msg}</span>`;$("#toasts").appendChild(t);setTimeout(()=>{t.style.transition=".3s";t.style.opacity="0";t.style.transform="translateX(20px)";setTimeout(()=>t.remove(),300)},2600)}
 
+// ------------------------------------------------------------
+// JS PART E — LOGIN / LOGOUT / ROLE SWITCHING
+// ------------------------------------------------------------
 function login(role){store.role=role;$("#login").style.display="none";$("#app").style.display="block";const u=USERS[role];$("#userName").textContent=u.name;$("#userRole").textContent=u.role;buildNav();store.view=role==="finance"?"fin-list":"sales-list";render()}
 function logout(){store.role=null;store.activeSR=null;store.salesSearched=false;store.salesQuery="";$("#app").style.display="none";$("#login").style.display="grid";closeUserMenu()}
 function switchRole(){const n=store.role==="finance"?"sales":"finance";closeUserMenu();login(n)}
@@ -371,6 +433,9 @@ function toggleUserMenu(e){e.stopPropagation();$("#userMenu").classList.toggle("
 function closeUserMenu(){const m=$("#userMenu");if(m)m.classList.remove("open")}
 document.addEventListener("click",closeUserMenu);
 
+// ------------------------------------------------------------
+// JS PART F — SIDEBAR NAVIGATION + PAGE RENDERING
+// ------------------------------------------------------------
 function buildNav(){
   const items=store.role==="finance"?[
     {v:"fin-list",ic:"⌂",t:"Buyback List"},{v:"fin-offsets",ic:"⇄",t:"Offset Record List"},{v:"fin-dash",ic:"▦",t:"Dashboard"}
@@ -390,6 +455,9 @@ function render(){
   $("#view").innerHTML=(map[store.view]||(()=>""))()
 }
 
+// ------------------------------------------------------------
+// JS PART G — FINANCE SIDE / BUYBACK LIST
+// ------------------------------------------------------------
 let finFilter="ALL";
 function renderFinList(){
   const rows=store.sr.filter(s=>finFilter==="ALL"||s.status===finFilter).map(s=>{
@@ -424,6 +492,9 @@ function finStatusCell(s){
 function setAroth(id,f,v){store.sr.find(s=>s.id===id)[f]=v.trim()}
 function finConfirmAroth(id,val){const s=store.sr.find(x=>x.id===id);if(val==="RELEASED"){if(!s.arothNo||!s.writeOffNo){toast("Enter Rebate Offset No. and Write-off No. first");render();return}s.status="RELEASED";toast(`${s.id} released · AR-OTH ${s.arothNo}`);render()}}
 
+// ------------------------------------------------------------
+// JS PART H — SALES SIDE / SEARCH & BUYBACK LIST
+// ------------------------------------------------------------
 function renderSalesList(){
   const q=store.salesQuery.trim().toUpperCase();let body;
   if(!store.salesSearched){
@@ -452,6 +523,10 @@ function salesClear(){store.salesQuery="";store.salesSearched=false;render()}
 function openDetail(id,side){store.activeSR=id;store.view=side==="fin"?"fin-detail":"sales-detail";store.draftType="direct";store.draftCM="AR-INC-0001";render()}
 function backToList(){store.activeSR=null;store.view=store.role==="finance"?"fin-list":"sales-list";render()}
 
+// ------------------------------------------------------------
+// JS PART I — TRANSACTION DETAIL PAGE
+// Includes progress, IMEI/CM details, rebate and offset panels.
+// ------------------------------------------------------------
 function renderDetail(){
   const s=store.sr.find(x=>x.id===store.activeSR);if(!s)return renderFinList();
   const tr=totalRebate(s);
@@ -497,6 +572,9 @@ function renderDetail(){
     </div>`;
 }
 
+// ------------------------------------------------------------
+// JS PART J — OFFSET AMOUNT CALCULATION / SETTLEMENT CARD
+// ------------------------------------------------------------
 function settleCard(s,type,cmId){
   const tr=totalRebate(s);
   if(type==='available'){
@@ -516,6 +594,10 @@ function settleCard(s,type,cmId){
   </div>`;
 }
 
+// ------------------------------------------------------------
+// JS PART K — OFFSET CONFIRMATION
+// Direct Offset vs Available CM selection.
+// ------------------------------------------------------------
 function offsetConfirmPanel(s){
   const t=store.draftType;
   const opts=AVAILABLE_CMS.map(c=>`<option value="${c.id}" ${store.draftCM===c.id?"selected":""}>${c.id}</option>`).join("");
@@ -544,6 +626,9 @@ function offsetConfirmPanel(s){
 }
 function setDraftType(t){store.draftType=t;render()}
 
+// ------------------------------------------------------------
+// JS PART L — FINANCE AR-OTH + MANUAL WRITE-OFF
+// ------------------------------------------------------------
 function arothPanel(s,byTag){
   return `<div class="panel"><span class="confirm-head">AR-OTH Creation ${byTag||""}</span>
     <div class="note-done" style="margin-bottom:16px">Offset <b>${s.offsetNo}</b> completed${s.offsetType==='available'?` via available CM <b>${s.availableCM}</b>`:''}. Enter the AR-OTH and write-off references to release.</div>
@@ -554,9 +639,16 @@ function arothPanel(s,byTag){
     </div></div>`;
 }
 function submitAroth(id){const s=store.sr.find(x=>x.id===id);const a=$("#arothInput").value.trim(),w=$("#woInput").value.trim();if(!a||!w){toast("Enter both the AR-OTH No. and the Write-off No.");return}s.arothNo=a;s.writeOffNo=w;s.status="RELEASED";toast(`${s.id} released · AR-OTH ${a}`);render()}
+// ------------------------------------------------------------
+// JS PART M — PROCESS OFFSET / CREATE OFFSET NUMBER / CHANGE STATUS
+// Later: this should SAVE the transaction to Google Sheets.
+// ------------------------------------------------------------
 function processOffset(id){const s=store.sr.find(x=>x.id===id);s.offsetType=store.draftType;s.availableCM=store.draftType==="available"?store.draftCM:null;s.offsetNo="OFFSET-"+String(store.offsetSeq++).padStart(4,"0");s.offsetDate=todayStr();s.offsetBy=USERS[store.role].role;s.status="FOR_AROTH";toast(`Offset processed by ${s.offsetBy} · ${s.offsetNo} created`);render()}
 function todayStr(){const d=new Date();return `${d.getMonth()+1}-${String(d.getDate()).padStart(2,'0')}-${d.getFullYear()}`}
 
+// ------------------------------------------------------------
+// JS PART N — OFFSET RECORD LIST
+// ------------------------------------------------------------
 function renderOffsets(){
   const recs=store.sr.filter(s=>s.offsetNo).sort((a,b)=>a.offsetNo.localeCompare(b.offsetNo));let body;
   if(!recs.length){
@@ -571,6 +663,9 @@ function renderOffsets(){
   return `<div class="toolbar"><button class="queue-tab">Transaction Queue</button><div class="search"><input placeholder="Search…" oninput="quickFilter(this.value,'offTbl')"><span class="go">⌕</span></div><span class="lbl">From</span><div class="date-pick">▤ 09 Feb 2021</div><span class="lbl">To</span><div class="date-pick">▤ 09 Feb 2021</div></div><div id="offTbl">${body}</div>`;
 }
 
+// ------------------------------------------------------------
+// JS PART O — FINANCE DASHBOARD
+// ------------------------------------------------------------
 function renderDash(){
   const all=store.sr;const count=st=>all.filter(s=>s.status===st).length;
   const totalBuyback=all.reduce((a,s)=>a+s.amount,0);const totalRebateAll=all.reduce((a,s)=>a+rebateAbs(s),0);
@@ -594,6 +689,9 @@ function renderDash(){
     </div>`;
 }
 
+// ------------------------------------------------------------
+// JS PART P — SEARCH FILTER + CSV EXPORT
+// ------------------------------------------------------------
 function quickFilter(q,tblId){q=q.trim().toLowerCase();const sc=document.getElementById(tblId);if(!sc)return;sc.querySelectorAll("tbody tr").forEach(tr=>{tr.style.display=tr.textContent.toLowerCase().includes(q)?"":"none"})}
 function exportList(){
   const heads=["DT Approval ID","Buyback Date","SR Ref","Owner","CM Ref","Buyback Amount","Rebate CM","Rebate Amount","Offset No","AR-OTH No","Write-off No","Status"];

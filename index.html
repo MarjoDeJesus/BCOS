@@ -706,13 +706,13 @@ function convertFinanceStatus(status) {
     value === "BUYBACK PROCESS"
   ) {
 
-    return "BUYBACK_PROCESS";
+    return "FOR_OFFSET";
 
   }
 
 
   // DEFAULT STATUS FOR NEW SR-BUY
-  return "BUYBACK_PROCESS";
+  return "FOR_OFFSET";
 
 }
 // ------------------------------------------------------------
@@ -739,20 +739,19 @@ const finalRelease=sr=>sr.offsetType==="available"?sr.amount:sr.amount-rebateAbs
 // Edit status names / labels here.
 // ------------------------------------------------------------
 const STATUS_META={
-  BUYBACK_PROCESS:{label:"Buyback Process",cls:"b-process"},
   FOR_OFFSET:{label:"For Offset",cls:"b-offset"},
   FOR_GA_FILLING:{label:"For GA Filing",cls:"b-ga"},
   FOR_AROTH:{label:"For AR-OTH Creation",cls:"b-aroth"},
   ONGOING_GA:{label:"On Going GA",cls:"b-ga"},
   RELEASED:{label:"Released",cls:"b-released"}
 };
-const statusBadge=s=>{const m=STATUS_META[s]||STATUS_META.BUYBACK_PROCESS;return `<span class="badge ${m.cls}">${m.label}</span>`};
+const statusBadge=s=>{const m=STATUS_META[s]||STATUS_META.FOR_OFFSET;return `<span class="badge ${m.cls}">${m.label}</span>`};
 const STEPS=[
-  {key:"BUYBACK_PROCESS",lab:"Buyback Process"},{key:"FOR_OFFSET",lab:"For Offset"},
+  {key:"FOR_OFFSET",lab:"For Offset"},
   {key:"FOR_AROTH",lab:"AR-OTH Processing"},{key:"FOR_GA_FILLING",lab:"For GA Filing"},
   {key:"ONGOING_GA",lab:"On Going GA"},{key:"RELEASED",lab:"Released"}
 ];
-function stepIndexFor(s){if(s==="FOR_OFFSET")return 1;if(s==="FOR_AROTH")return 2;if(s==="FOR_GA_FILLING")return 3;if(s==="ONGOING_GA")return 4;if(s==="RELEASED")return 5;return 0}
+function stepIndexFor(s){if(s==="FOR_AROTH")return 1;if(s==="FOR_GA_FILLING")return 2;if(s==="ONGOING_GA")return 3;if(s==="RELEASED")return 4;return 0}
 function toast(msg){const t=document.createElement("div");t.className="toast";t.innerHTML=`<span class="ti">✓</span><span>${msg}</span>`;$("#toasts").appendChild(t);setTimeout(()=>{t.style.transition=".3s";t.style.opacity="0";t.style.transform="translateX(20px)";setTimeout(()=>t.remove(),300)},2600)}
 
 // ------------------------------------------------------------
@@ -793,21 +792,21 @@ function render(){
 let finFilter="ALL";
 function renderFinList(){
   const rows=store.sr.filter(s=>finFilter==="ALL"||s.status===finFilter).map(s=>{
-    const p=s.cms.find(c=>c.rebate!=null)||s.cms[0]||{};const tr=totalRebate(s);const ed=["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status);
+    const p=s.cms.find(c=>c.rebate!=null)||s.cms[0]||{};const tr=totalRebate(s);
     return `<tr class="clickable" onclick="openDetail('${s.id}','fin')">
       <td class="strong">${s.dt}</td><td>${s.buybackDate}</td><td class="strong">${s.id}</td>
       <td>${p.material||"-"}</td><td>${s.owner}</td><td>${s.arBuy}</td>
       <td class="num">${s.amount.toLocaleString()}</td><td>${s.rebateCmRef}</td>
       <td>${p.nature||"-"}</td><td><span class="mini">${p.detail||"-"}</span></td>
       <td class="num ${tr<0?'neg':''}">${tr!==0?tr:"-"}</td><td class="strong">${s.offsetNo||"-"}</td>
-      <td onclick="event.stopPropagation()"><input class="cell-input" placeholder="AR-OTH No." value="${s.arothNo}" ${ed?"":"disabled"} onchange="saveFinanceField('${s.id}','rebateOffsetNo',this.value)"></td>
-      <td onclick="event.stopPropagation()"><input class="cell-input" placeholder="Write-off No." value="${s.writeOffNo}" ${ed?"":"disabled"} onchange="saveFinanceField('${s.id}','manualWriteOffNo',this.value)"></td>
+      <td>${s.arothNo||""}</td>
+      <td>${s.writeOffNo||""}</td>
       <td onclick="event.stopPropagation()">${finStatusCell(s)}</td>
     </tr>`}).join("");
   return `<div class="toolbar">
       <div class="search"><input placeholder="Search SR / owner / CM…" oninput="quickFilter(this.value,'finTbl')"><span class="go">⌕</span></div>
       <div class="pill-filter">▤ <select class="status-filter" onchange="finFilter=this.value;render()">
-        <option value="ALL">All Status</option><option value="BUYBACK_PROCESS">Buyback Process</option><option value="FOR_OFFSET">For Offset</option><option value="FOR_AROTH">For AR-OTH Creation</option><option value="FOR_GA_FILLING">For GA Filing</option><option value="ONGOING_GA">On Going GA</option><option value="RELEASED">Released</option></select></div>
+        <option value="ALL">All Status</option><option value="FOR_OFFSET">For Offset</option><option value="FOR_AROTH">For AR-OTH Creation</option><option value="FOR_GA_FILLING">For GA Filing</option><option value="ONGOING_GA">On Going GA</option><option value="RELEASED">Released</option></select></div>
       <span class="lbl">From</span><div class="date-pick">▤ 09 Feb 2021</div><span class="lbl">To</span><div class="date-pick">▤ 09 Feb 2021</div>
       <div class="spacer"></div><button class="btn" onclick="exportList()">EXPORT</button>
     </div>
@@ -818,13 +817,6 @@ function renderFinList(){
     <p class="mini" style="margin-top:14px">Statuses are computed from IMEI ↔ CM matching. Open any <b>For Offset</b> row to process the offset directly, or a <b>For AR-OTH Creation</b> row to post the AR-OTH and write-off.</p>`;
 }
 function finStatusCell(s){
-  if(s.status==="BUYBACK_PROCESS"){
-    return `<select class="badge-select" onchange="financeChangeStatus('${s.id}',this.value)">
-      <option value="BUYBACK_PROCESS" selected>Buyback Process</option>
-      <option value="FOR_OFFSET">For Offset</option>
-    </select>`;
-  }
-
   if(s.status==="FOR_OFFSET"){
     return statusBadge(s.status);
   }
@@ -1101,7 +1093,7 @@ function renderDash(){
   const all=store.sr;const count=st=>all.filter(s=>s.status===st).length;
   const totalBuyback=all.reduce((a,s)=>a+s.amount,0);const totalRebateAll=all.reduce((a,s)=>a+rebateAbs(s),0);
   const released=all.filter(s=>s.status==="RELEASED");const totalReleased=released.reduce((a,s)=>a+finalRelease(s),0);
-  const dist=[{k:"Buyback Process",n:count("BUYBACK_PROCESS"),c:"#a8abb5"},{k:"For Offset",n:count("FOR_OFFSET"),c:"#FFC61A"},{k:"For AR-OTH Creation",n:count("FOR_AROTH"),c:"#8d8b98"},{k:"For GA Filing",n:count("FOR_GA_FILLING"),c:"#E9C766"},{k:"On Going GA",n:count("ONGOING_GA"),c:"#c6b46a"},{k:"Released",n:count("RELEASED"),c:"#1f1e25"}];
+  const dist=[{k:"For Offset",n:count("FOR_OFFSET"),c:"#FFC61A"},{k:"For AR-OTH Creation",n:count("FOR_AROTH"),c:"#8d8b98"},{k:"For GA Filing",n:count("FOR_GA_FILLING"),c:"#E9C766"},{k:"On Going GA",n:count("ONGOING_GA"),c:"#c6b46a"},{k:"Released",n:count("RELEASED"),c:"#1f1e25"}];
   const maxN=Math.max(1,...dist.map(d=>d.n));
   const bars=dist.map(d=>`<div class="barrow"><div class="bl">${d.k}</div><div class="bartrack"><div class="barfill" style="width:${(d.n/maxN)*100}%;background:${d.c}"></div></div><div class="bn">${d.n}</div></div>`).join("");
   const total=all.length||1;let acc=0;const segs=dist.map(d=>{const f=d.n/total;const s=`${d.c} ${acc*360}deg ${(acc+f)*360}deg`;acc+=f;return s}).join(",");

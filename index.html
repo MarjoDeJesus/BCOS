@@ -481,7 +481,7 @@ async function loadFinanceRecord() {
         imei: row.imei || "-",
         nature: row.cmNature || "-",
         detail: row.cmDetails || "",
-        material: rebateAmount === 0 ? "-" : (row.materialName || "-"),
+        material: row.materialName || "-",
         rebate: row.rebateAmount === "" || row.rebateAmount == null
           ? null
           : rebateAmount
@@ -536,7 +536,7 @@ async function loadFinanceRecord() {
             imei: "-",
             nature: row.cmNature || "-",
             detail: row.cmDetails || "",
-            material: financeRebateAmount === 0 ? "-" : (row.materialName || "-"),
+            material: row.materialName || "-",
             rebate: row.rebateAmount === "" || row.rebateAmount == null
               ? null
               : financeRebateAmount

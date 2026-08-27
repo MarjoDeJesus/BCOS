@@ -1013,20 +1013,14 @@ function setDraftType(t){store.draftType=t;render()}
 // JS PART L — FINANCE AR-OTH + MANUAL WRITE-OFF
 // ------------------------------------------------------------
 function arothPanel(s,byTag){
-  const editable=["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status);
-  const noRebateOffset=!s.arothNo && !s.writeOffNo && ["FOR_GA_FILLING","ONGOING_GA"].includes(s.status);
-  if(noRebateOffset){
-    return `<div class="panel"><span class="confirm-head">Finance Processing ${byTag||""}</span>
-      <div class="note-done">Offset <b>${s.offsetNo||"-"}</b> completed with <b>No Rebate Offset</b>. No AR-OTH or Manual Write-off input is required. The transaction is tagged as <b>${(STATUS_META[s.status]||{}).label||s.status}</b>.</div>
-    </div>`;
-  }
+  const hasSavedReferences=Boolean(s.arothNo || s.writeOffNo);
+  const details=hasSavedReferences
+    ? `<div class="note-done">Offset <b>${s.offsetNo||"-"}</b> completed. Saved AR-OTH: <b>${s.arothNo||"-"}</b> · Manual Write-off: <b>${s.writeOffNo||"-"}</b>.</div>`
+    : `<div class="note-done">Offset <b>${s.offsetNo||"-"}</b> completed with <b>No Rebate Offset</b>. No AR-OTH or Manual Write-off is required.</div>`;
   return `<div class="panel"><span class="confirm-head">Finance Processing ${byTag||""}</span>
-    <div class="note-done" style="margin-bottom:16px">Offset <b>${s.offsetNo||"-"}</b> completed. Enter the AR-OTH and write-off references below. These entries save directly to <b>FINANCE RECORD</b>.</div>
-    <div class="aroth-form">
-      <div><label>Rebate Offset No. (AR-OTH)</label><input id="arothInput" placeholder="e.g. AR-OTH-0001" value="${s.arothNo}" ${editable?"":"disabled"} onchange="saveFinanceField('${s.id}','rebateOffsetNo',this.value)"></div>
-      <div><label>Manual Write-off No.</label><input id="woInput" placeholder="e.g. 1234323" value="${s.writeOffNo}" ${editable?"":"disabled"} onchange="saveFinanceField('${s.id}','manualWriteOffNo',this.value)"></div>
-      <p class="avail-note">After saving the references, Finance can change the status from <b>For AR-OTH Creation</b> → <b>For GA Filing</b> → <b>On Going GA</b> → <b>Released</b>.</p>
-    </div></div>`;
+    ${details}
+    <p class="avail-note">Current status: <b>${(STATUS_META[s.status]||{}).label||s.status}</b>.</p>
+  </div>`;
 }
 // ------------------------------------------------------------
 // JS PART M — PROCESS OFFSET / CREATE OFFSET NUMBER / CHANGE STATUS

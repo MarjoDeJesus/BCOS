@@ -303,7 +303,7 @@
       </button>
       <button class="role-card" onclick="login('sales')">
         <span class="role-ic sal">⇄</span>
-        <span><b>Sales</b><span>Search a return · process the offset</span></span>
+        <span><b>Sales</b><span>Search a return · monitor the process</span></span>
         <span class="arw">→</span>
       </button>
     </div>
@@ -885,7 +885,7 @@ async function saveFinanceField(id,field,value){
 function renderSalesList(){
   const q=store.salesQuery.trim().toUpperCase();let body;
   if(!store.salesSearched){
-    body=`<div class="empty"><div class="ic">⌕</div><div class="big">Search a Sales Return to begin</div><div>Click the search button or get the SR number in the Sales Return Approval (e.g. SR-BUY-0001), then open it to process the offset.</div></div>`;
+    body=`<div class="empty"><div class="ic">⌕</div><div class="big">Search a Sales Return to begin</div><div>Click the search button or get the SR number in the Sales Return Approval (e.g. SR-BUY-0001), then open it to monitor the process.</div></div>`;
   }else{
     const m=store.sr.filter(s=>s.status==="FOR_OFFSET"&&(s.id.includes(q)||s.owner.toUpperCase().includes(q)||s.arBuy.includes(q)));
     if(!m.length){
@@ -927,10 +927,10 @@ function renderDetail(){
 
   let actionPanel="";
   if(s.status==="FOR_OFFSET"){
-    if(store.role==="sales"){
+    if(store.role==="finance"){
       actionPanel=offsetConfirmPanel(s);
     }else{
-      actionPanel=`<div class="panel"><span class="confirm-head">Waiting for Sales Confirmation</span><div class="note-done">This transaction is already tagged <b>For Offset</b>. Sales must confirm <b>Direct Offset</b> or <b>Available CM</b> before an Offset No. is generated.</div></div>`;
+      actionPanel=`<div class="panel"><span class="confirm-head">Finance Processing</span><div class="note-done">This transaction is already tagged <b>For Offset</b>. Finance controls the straight-through offset process and Offset No. creation.</div></div>`;
     }
   }else if(["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status)){
     const byTag=s.offsetBy?`<span class="who-tag">Offset by ${s.offsetBy}</span>`:"";
@@ -986,33 +986,15 @@ function settleCard(s,type,cmId){
 }
 
 // ------------------------------------------------------------
-// JS PART K — OFFSET CONFIRMATION
-// Direct Offset vs Available CM selection.
+// JS PART K — STRAIGHT-THROUGH OFFSET PROCESSING
+// Finance controls processing; Sales has no offset-type selection.
 // ------------------------------------------------------------
 function offsetConfirmPanel(s){
-  const t=store.draftType;
-  const opts=AVAILABLE_CMS.map(c=>`<option value="${c.id}" ${store.draftCM===c.id?"selected":""}>${c.id}</option>`).join("");
-  const cm=getCM(store.draftCM);
-  const body = t==='direct' ? `
-      <div class="field-lab">Buyback CM No.</div><div class="cm-no">${s.arBuy}</div>
-      <p class="avail-note">Direct offset deducts the ${rebateAbs(s).toLocaleString()} rebate from the buyback. Released to owner: <b>${peso(s.amount-rebateAbs(s))}</b>.</p>
-    ` : `
-      <div class="field-lab">Select Available CM</div>
-      <select class="sel-cm" onchange="store.draftCM=this.value;render()">${opts}</select>
-      <div class="stat-row">
-        <div class="stat"><span>Available Amount</span><b>${peso(cm.amount)}</b></div>
-        <div class="stat"><span>Aging Days</span><b>${cm.aging} days</b></div>
-      </div>
-      <p class="avail-note">Rebate is absorbed by the selected CM balance; the SR buyback stays whole and full <b>${peso(s.amount)}</b> is released.</p>
-    `;
-  return `<div class="panel"><span class="confirm-head">Confirmation for Offset</span>
-    <div class="offset-opts">
-      <div class="opt ${t==='direct'?'sel':''}" onclick="setDraftType('direct')"><span>Direct Offset</span><span class="radio"></span></div>
-      <div class="opt ${t==='available'?'sel':''}" onclick="setDraftType('available')"><span>Available CM</span><span class="radio"></span></div>
-    </div>
-    ${body}
+  return `<div class="panel"><span class="confirm-head">Finance Offset Processing</span>
+    <div class="field-lab">Buyback CM No.</div><div class="cm-no">${s.arBuy}</div>
+    <p class="avail-note">Finance will proceed through the straight-through offset process. The ${rebateAbs(s).toLocaleString()} rebate will be deducted from the buyback. Amount for release: <b>${peso(s.amount-rebateAbs(s))}</b>.</p>
     <button class="btn" style="width:100%;margin-top:16px" onclick="processOffset('${s.id}')">Process Offset</button>
-    <p class="avail-note">After processing, this transaction automatically moves to the <b>Offset Record List</b> and Finance sees status <b>For AR-OTH Creation</b>.</p>
+    <p class="avail-note">After processing, this transaction automatically moves to the <b>Offset Record List</b> with status <b>For AR-OTH Creation</b>.</p>
   </div>`;
 }
 function setDraftType(t){store.draftType=t;render()}
@@ -1038,22 +1020,22 @@ async function processOffset(id){
   const s=store.sr.find(x=>x.id===id);
   if(!s)return;
 
-  if(store.role!=="sales"){
-    toast("Sales confirmation is required to process the offset");
+  if(store.role!=="finance"){
+    toast("Finance controls offset processing");
     return;
   }
 
   try{
     const result=await bcosApiAction("processOffset",{
       srRef:id,
-      offsetType:store.draftType,
-      availableCM:store.draftType==="available"?store.draftCM:""
+      offsetType:"direct",
+      availableCM:""
     });
 
     toast(`Offset processed · ${result.offsetNo} created`);
     await loadFinanceRecord();
     store.activeSR=id;
-    store.view="sales-detail";
+    store.view="fin-detail";
     render();
   }catch(error){
     console.error(error);
@@ -1073,7 +1055,7 @@ function renderOffsets(){
   let body;
 
   if(!recs.length){
-    body=`<div class="empty"><div class="ic">⇄</div><div class="big">No offsets recorded yet</div><div>Once Sales confirms a <b>For Offset</b> transaction, the saved record from <b>OFFSET RECORD</b> appears here for both Finance and Sales.</div></div>`;
+    body=`<div class="empty"><div class="ic">⇄</div><div class="big">No offsets recorded yet</div><div>Once Finance processes a <b>For Offset</b> transaction, the saved record from <b>OFFSET RECORD</b> appears here for both Finance and Sales.</div></div>`;
   }else{
     const rows=recs.map(s=>`<tr>
       <td class="strong">${s.offsetNo}</td>

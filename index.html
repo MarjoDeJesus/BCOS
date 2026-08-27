@@ -839,8 +839,8 @@ async function financeChangeStatus(id,val){
   const s=store.sr.find(x=>x.id===id);
   if(!s)return;
 
-  if(val==="RELEASED" && (!s.arothNo || !s.writeOffNo)){
-    toast("Enter Rebate Offset No. and Write-off No. first");
+  if(val==="RELEASED" && ((s.arothNo && !s.writeOffNo) || (!s.arothNo && s.writeOffNo))){
+    toast("Complete both Rebate Offset No. and Write-off No. first");
     render();
     return;
   }
@@ -1014,6 +1014,12 @@ function setDraftType(t){store.draftType=t;render()}
 // ------------------------------------------------------------
 function arothPanel(s,byTag){
   const editable=["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status);
+  const noRebateOffset=!s.arothNo && !s.writeOffNo && ["FOR_GA_FILLING","ONGOING_GA"].includes(s.status);
+  if(noRebateOffset){
+    return `<div class="panel"><span class="confirm-head">Finance Processing ${byTag||""}</span>
+      <div class="note-done">Offset <b>${s.offsetNo||"-"}</b> completed with <b>No Rebate Offset</b>. No AR-OTH or Manual Write-off input is required. The transaction is tagged as <b>${(STATUS_META[s.status]||{}).label||s.status}</b>.</div>
+    </div>`;
+  }
   return `<div class="panel"><span class="confirm-head">Finance Processing ${byTag||""}</span>
     <div class="note-done" style="margin-bottom:16px">Offset <b>${s.offsetNo||"-"}</b> completed. Enter the AR-OTH and write-off references below. These entries save directly to <b>FINANCE RECORD</b>.</div>
     <div class="aroth-form">
@@ -1029,6 +1035,8 @@ function arothPanel(s,byTag){
 async function processOffset(id,hasRebateOffset){
   const s=store.sr.find(x=>x.id===id);
   if(!s)return;
+
+  if(store.offsetBusy)return;
 
   if(store.role!=="finance"){
     toast("Finance controls offset processing");
@@ -1046,6 +1054,7 @@ async function processOffset(id,hasRebateOffset){
     return;
   }
 
+  store.offsetBusy=true;
   try{
     const result=await bcosApiAction("processOffset",{
       srRef:id,
@@ -1064,6 +1073,8 @@ async function processOffset(id,hasRebateOffset){
   }catch(error){
     console.error(error);
     toast(error.message || "Unable to process offset");
+  }finally{
+    store.offsetBusy=false;
   }
 }
 function todayStr(){const d=new Date();return `${d.getMonth()+1}-${String(d.getDate()).padStart(2,'0')}-${d.getFullYear()}`}

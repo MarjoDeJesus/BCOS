@@ -381,6 +381,8 @@ const store={
 
   draftCM:"AR-INC-0001",
 
+  hasRebateOffset:"",
+
   // DATA FROM GOOGLE SHEETS
   sr:[],
 
@@ -899,7 +901,7 @@ function renderSalesList(){
 function salesSearch(){const v=$("#salesSearch");store.salesQuery=v?v.value:"";store.salesSearched=true;render()}
 function salesClear(){store.salesQuery="";store.salesSearched=false;render()}
 
-function openDetail(id,side){store.activeSR=id;store.view=side==="fin"?"fin-detail":"sales-detail";store.draftType="direct";store.draftCM="AR-INC-0001";render()}
+function openDetail(id,side){store.activeSR=id;store.view=side==="fin"?"fin-detail":"sales-detail";store.draftType="direct";store.draftCM="AR-INC-0001";store.hasRebateOffset="";render()}
 function backToList(){store.activeSR=null;store.view=store.role==="finance"?"fin-list":"sales-list";render()}
 
 // ------------------------------------------------------------
@@ -982,11 +984,27 @@ function settleCard(s,type,cmId){
 // Finance controls processing; Sales has no offset-type selection.
 // ------------------------------------------------------------
 function offsetConfirmPanel(s){
+  const choice=store.hasRebateOffset;
+  const nextAction=choice==="yes"?`
+    <div class="aroth-form">
+      <div><label>Rebate Offset No. (AR-OTH)</label><input id="newArothInput" placeholder="e.g. AR-OTH-0001"></div>
+      <div><label>Manual Write-off No.</label><input id="newWoInput" placeholder="e.g. 1234323"></div>
+      <button class="btn" style="width:100%" onclick="processOffset('${s.id}','yes')">Submit</button>
+    </div>
+    <p class="avail-note">Submitting creates the Offset Control No., saves both references, and moves the transaction to <b>For GA Filing</b>.</p>
+  `:choice==="no"?`
+    <div class="note-done">No AR-OTH or Manual Write-off input is required. Continue to automatically create the Offset Control No. and tag the transaction as <b>For GA Filing</b>.</div>
+    <button class="btn" style="width:100%;margin-top:16px" onclick="processOffset('${s.id}','no')">Create Offset Control No.</button>
+  `:`<p class="avail-note">Choose Yes or No to continue.</p>`;
   return `<div class="panel"><span class="confirm-head">Finance Offset Processing</span>
     <div class="field-lab">Buyback CM No.</div><div class="cm-no">${s.arBuy}</div>
     <p class="avail-note">Finance will proceed through the straight-through offset process. The ${rebateAbs(s).toLocaleString()} rebate will be deducted from the buyback. Amount for release: <b>${peso(s.amount-rebateAbs(s))}</b>.</p>
-    <button class="btn" style="width:100%;margin-top:16px" onclick="processOffset('${s.id}')">Process Offset</button>
-    <p class="avail-note">After processing, this transaction automatically moves to the <b>Offset Record List</b> with status <b>For AR-OTH Creation</b>.</p>
+    <div class="field-lab" style="margin-top:18px">Has Rebate Offset?</div>
+    <div class="offset-opts">
+      <div class="opt ${choice==='yes'?'sel':''}" onclick="store.hasRebateOffset='yes';render()"><span>Yes</span><span class="radio"></span></div>
+      <div class="opt ${choice==='no'?'sel':''}" onclick="store.hasRebateOffset='no';render()"><span>No</span><span class="radio"></span></div>
+    </div>
+    ${nextAction}
   </div>`;
 }
 function setDraftType(t){store.draftType=t;render()}
@@ -1008,7 +1026,7 @@ function arothPanel(s,byTag){
 // JS PART M — PROCESS OFFSET / CREATE OFFSET NUMBER / CHANGE STATUS
 // Saves to FINANCE RECORD + OFFSET RECORD through Apps Script.
 // ------------------------------------------------------------
-async function processOffset(id){
+async function processOffset(id,hasRebateOffset){
   const s=store.sr.find(x=>x.id===id);
   if(!s)return;
 
@@ -1017,11 +1035,25 @@ async function processOffset(id){
     return;
   }
 
+  const isYes=hasRebateOffset==="yes";
+  const arothInput=isYes?$("#newArothInput"):null;
+  const woInput=isYes?$("#newWoInput"):null;
+  const rebateOffsetNo=arothInput?arothInput.value.trim():"";
+  const manualWriteOffNo=woInput?woInput.value.trim():"";
+
+  if(isYes && (!rebateOffsetNo || !manualWriteOffNo)){
+    toast("Enter the AR-OTH No. and Manual Write-off No.");
+    return;
+  }
+
   try{
     const result=await bcosApiAction("processOffset",{
       srRef:id,
       offsetType:"direct",
-      availableCM:""
+      availableCM:"",
+      hasRebateOffset:hasRebateOffset,
+      rebateOffsetNo:rebateOffsetNo,
+      manualWriteOffNo:manualWriteOffNo
     });
 
     toast(`Offset processed · ${result.offsetNo} created`);

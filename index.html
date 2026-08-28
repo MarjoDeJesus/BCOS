@@ -443,7 +443,7 @@ async function bcosApiAction(action, params={}) {
   if(!result.success){
     const error = new Error(result.message || "BCOS request failed");
     error.code = result.code || "";
-    if(error.code === "SESSION_EXPIRED"){
+    if(["SESSION_EXPIRED","ACCOUNT_DISABLED"].includes(error.code)){
       clearBCOSSession();
     }
     throw error;
@@ -475,7 +475,7 @@ async function loadFinanceRecord() {
     const result = await response.json();
 
     if (!result.success) {
-      if(result.code === "SESSION_EXPIRED") clearBCOSSession();
+      if(["SESSION_EXPIRED","ACCOUNT_DISABLED"].includes(result.code)) clearBCOSSession();
       const error=new Error(result.message || "Unable to load BCOS records");
       error.code=result.code||"";
       throw error;

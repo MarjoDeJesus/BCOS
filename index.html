@@ -431,7 +431,15 @@ async function loadFinanceRecord() {
 
     console.log("Loading Finance + Rebate Records...");
 
-    const response = await fetch(FINANCE_API_URL);
+    // Always load the latest deployed Apps Script data.
+    // The timestamp prevents GitHub Pages/browser caching an older blank response.
+    const dataUrl = new URL(FINANCE_API_URL);
+    dataUrl.searchParams.set("_t", Date.now());
+
+    const response = await fetch(dataUrl.toString(), {
+      cache: "no-store",
+      redirect: "follow"
+    });
 
     if (!response.ok) {
       throw new Error("HTTP error: " + response.status);
@@ -593,7 +601,10 @@ async function loadFinanceRecord() {
   } catch (error) {
 
     console.error("Unable to load BCOS records:", error);
-    toast("Unable to load Finance / Rebate Record");
+    store.sr = [];
+    store.offsets = [];
+    render();
+    toast("Unable to load data: " + (error.message || "Check Apps Script deployment"));
 
   }
 }

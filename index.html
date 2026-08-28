@@ -137,6 +137,8 @@
   tbody tr.clickable{cursor:pointer;transition:.12s}
   tbody tr.clickable:hover{background:#fffbee}
   td .strong{color:var(--ink);font-weight:700}
+  .sr-ref-link{color:var(--ink);font-weight:800;text-decoration:underline;text-decoration-color:var(--gold-deep);text-underline-offset:3px;cursor:pointer}
+  .sr-ref-link:hover{color:#9a6d00}
   td.num{font-variant-numeric:tabular-nums}
   .neg{color:var(--red);font-weight:700}.pos{color:var(--ink);font-weight:800}
   .mini{font-size:11px;color:var(--muted)}
@@ -387,6 +389,8 @@ const store={
   view:null,
 
   activeSR:null,
+
+  detailReturnView:null,
 
   salesSearched:false,
 
@@ -816,6 +820,7 @@ function clearBCOSSession(){
   store.user=null;
   store.sessionToken=null;
   store.activeSR=null;
+  store.detailReturnView=null;
   store.salesSearched=false;
   store.salesQuery="";
   store.sr=[];
@@ -922,10 +927,14 @@ function buildNav(){
   ];
   $("#nav").innerHTML=items.map(i=>`<button data-v="${i.v}" onclick="go('${i.v}')"><span class="ni">${i.ic}</span> ${i.t}</button>`).join("")
 }
-function go(v){store.view=v;store.activeSR=null;render()}
+function go(v){store.view=v;store.activeSR=null;store.detailReturnView=null;render()}
 function render(){
   document.querySelectorAll("#nav button").forEach(b=>{
-    b.classList.toggle("active",b.dataset.v===store.view||(store.activeSR&&((store.view==="fin-detail"&&b.dataset.v==="fin-list")||(store.view==="sales-detail"&&b.dataset.v==="sales-list"))))
+    b.classList.toggle("active",b.dataset.v===store.view||(store.activeSR&&(
+      b.dataset.v===store.detailReturnView||
+      (store.view==="fin-detail"&&b.dataset.v==="fin-list")||
+      (store.view==="sales-detail"&&b.dataset.v==="sales-list")
+    )))
   });
   const titles={"fin-list":"List of Buyback","fin-offsets":"Offset Record List","fin-dash":"Dashboard","fin-detail":"Buyback Record List","sales-list":"Buyback Record List","sales-offsets":"Offset Record List","sales-detail":"Buyback Record List"};
   $("#pageTitle").textContent=titles[store.view]||"BCOS";
@@ -1049,8 +1058,15 @@ function renderSalesList(){
 function salesSearch(){const v=$("#salesSearch");store.salesQuery=v?v.value:"";store.salesSearched=true;render()}
 function salesClear(){store.salesQuery="";store.salesSearched=false;render()}
 
-function openDetail(id,side){store.activeSR=id;store.view=side==="fin"?"fin-detail":"sales-detail";store.draftType="direct";store.draftCM="AR-INC-0001";store.hasRebateOffset="";render()}
-function backToList(){store.activeSR=null;store.view=store.role==="sales"?"sales-offsets":"fin-list";render()}
+function openDetail(id,side,returnView=null){store.activeSR=id;store.detailReturnView=returnView;store.view=side==="fin"?"fin-detail":"sales-detail";store.draftType="direct";store.draftCM="AR-INC-0001";store.hasRebateOffset="";render()}
+function openOffsetDetail(id){
+  if(!store.sr.some(s=>s.id===id)){
+    toast(id+" transaction details were not found");
+    return;
+  }
+  openDetail(id,store.role==="finance"?"fin":"sales",store.view);
+}
+function backToList(){const returnView=store.detailReturnView;store.activeSR=null;store.detailReturnView=null;store.view=returnView||(store.role==="sales"?"sales-offsets":"fin-list");render()}
 
 // ------------------------------------------------------------
 // JS PART I — TRANSACTION DETAIL PAGE
@@ -1239,7 +1255,7 @@ function renderOffsets(){
       <td>${s.offsetDate||"—"}</td>
       <td>${s.buybackDate||"—"}</td>
       <td>${s.owner||"—"}</td>
-      <td>${s.srRef||"—"}</td>
+      <td>${s.srRef?`<button class="sr-ref-link" onclick="openOffsetDetail('${s.srRef}')">${s.srRef}</button>`:"—"}</td>
       <td>${s.buybackCM||"—"}</td>
       <td class="num">${s.buybackAmount.toLocaleString()}</td>
       <td class="num neg">${s.rebateAmount.toLocaleString()}</td>

@@ -62,6 +62,14 @@
   .role-card b{display:block;font-size:15px}
   .role-card span{font-size:12px;color:var(--muted)}
   .role-card .arw{margin-left:auto;color:var(--muted);font-size:18px}
+  .login-form{display:grid;gap:14px}
+  .login-field label{display:block;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:7px;color:#55515f}
+  .login-field input{width:100%;height:48px;border:1.5px solid var(--line);border-radius:12px;padding:0 14px;font:inherit;outline:none;background:#fff}
+  .login-field input:focus{border-color:var(--gold-deep);box-shadow:0 0 0 3px rgba(244,179,1,.12)}
+  .login-submit{height:48px;border:0;border-radius:12px;background:linear-gradient(90deg,var(--gold-2),var(--gold-deep));font-weight:900;color:var(--on-gold)}
+  .login-submit:disabled{opacity:.55;cursor:wait}
+  .login-error{min-height:18px;color:var(--red);font-size:12px;font-weight:700}
+  .login-note{padding:11px 12px;border-radius:10px;background:var(--gold-soft);color:#765700;font-size:12px;line-height:1.45}
 
   /* ------------------------------------------------------------
      CSS PART C — MAIN APP / SIDEBAR / TOP BAR
@@ -291,21 +299,30 @@
         </div>
         <p class="login-tag">Match sales returns to credit memos, process offsets, and release buyback amounts — in one place.</p>
       </div>
-      <div class="login-foot">Interactive prototype · Mock data</div>
+      <div class="login-foot">Google Sheets–based BCOS Web Application</div>
     </div>
     <div class="login-right">
-      <h2>Sign in</h2>
-      <p>Choose a role to explore the workflow.</p>
-      <button class="role-card" onclick="login('finance')">
-        <span class="role-ic fin">▤</span>
-        <span><b>Finance</b><span>Buyback list · IMEI matching · process offset · AR-OTH</span></span>
-        <span class="arw">→</span>
-      </button>
-      <button class="role-card" onclick="login('sales')">
-        <span class="role-ic sal">⇄</span>
-        <span><b>Sales</b><span>Search a return · monitor the process</span></span>
-        <span class="arw">→</span>
-      </button>
+      <div id="loginFormView">
+        <h2>Sign in</h2>
+        <p>Use your Employee ID and BCOS password.</p>
+        <form class="login-form" onsubmit="submitLogin(event)">
+          <div class="login-field"><label for="employeeId">Employee ID</label><input id="employeeId" autocomplete="username" required></div>
+          <div class="login-field"><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
+          <button class="login-submit" id="loginButton" type="submit">SIGN IN</button>
+          <div class="login-error" id="loginError"></div>
+        </form>
+      </div>
+      <div id="changePasswordView" style="display:none">
+        <h2>Change password</h2>
+        <p>For privacy, replace the default password before continuing.</p>
+        <form class="login-form" onsubmit="submitPasswordChange(event)">
+          <div class="login-note">Use at least 8 characters and do not reuse <b>makeitreal</b>.</div>
+          <div class="login-field"><label for="newPassword">New password</label><input id="newPassword" type="password" minlength="8" autocomplete="new-password" required></div>
+          <div class="login-field"><label for="confirmPassword">Confirm password</label><input id="confirmPassword" type="password" minlength="8" autocomplete="new-password" required></div>
+          <button class="login-submit" id="changePasswordButton" type="submit">SAVE NEW PASSWORD</button>
+          <div class="login-error" id="changePasswordError"></div>
+        </form>
+      </div>
     </div>
   </div>
 </div>
@@ -328,7 +345,6 @@
           <div class="who"><b id="userName">JOHN</b><span id="userRole">FINANCE</span></div>
           <button class="avatar" onclick="toggleUserMenu(event)">◕</button>
           <div class="user-menu" id="userMenu">
-            <button onclick="switchRole()">⇄ Switch role</button>
             <button onclick="logout()">⎋ Sign out</button>
           </div>
         </div>
@@ -358,14 +374,15 @@ document.querySelectorAll(".logo-slot").forEach(slot=>{
 });
 
 // ------------------------------------------------------------
-// JS PART B — USERS + MOCK DATABASE
-// IMPORTANT: This is currently MOCK DATA.
-// connected to google sheets
+// JS PART B — AUTHENTICATED USER + GOOGLE SHEETS DATA
 // ------------------------------------------------------------
-const USERS={finance:{name:"JOHN",role:"FINANCE"},sales:{name:"Jane",role:"SALES"}};
 const store={
 
   role:null,
+
+  user:null,
+
+  sessionToken:null,
 
   view:null,
 
@@ -407,6 +424,10 @@ async function bcosApiAction(action, params={}) {
   url.searchParams.set("action", action);
   url.searchParams.set("_t", Date.now());
 
+  if(store.sessionToken){
+    url.searchParams.set("sessionToken", store.sessionToken);
+  }
+
   Object.entries(params).forEach(([key,value]) => {
     if(value !== undefined && value !== null){
       url.searchParams.set(key, value);
@@ -420,7 +441,12 @@ async function bcosApiAction(action, params={}) {
 
   const result = await response.json();
   if(!result.success){
-    throw new Error(result.message || "BCOS update failed");
+    const error = new Error(result.message || "BCOS request failed");
+    error.code = result.code || "";
+    if(error.code === "SESSION_EXPIRED"){
+      clearBCOSSession();
+    }
+    throw error;
   }
   return result;
 }
@@ -435,6 +461,7 @@ async function loadFinanceRecord() {
     // The timestamp prevents GitHub Pages/browser caching an older blank response.
     const dataUrl = new URL(FINANCE_API_URL);
     dataUrl.searchParams.set("_t", Date.now());
+    dataUrl.searchParams.set("sessionToken", store.sessionToken);
 
     const response = await fetch(dataUrl.toString(), {
       cache: "no-store",
@@ -448,7 +475,10 @@ async function loadFinanceRecord() {
     const result = await response.json();
 
     if (!result.success) {
-      throw new Error(result.message || "Unable to load BCOS records");
+      if(result.code === "SESSION_EXPIRED") clearBCOSSession();
+      const error=new Error(result.message || "Unable to load BCOS records");
+      error.code=result.code||"";
+      throw error;
     }
 
     // ========================================================
@@ -768,11 +798,113 @@ function stepIndexFor(s){if(s==="FOR_AROTH")return 1;if(s==="FOR_GA_FILLING")ret
 function toast(msg){const t=document.createElement("div");t.className="toast";t.innerHTML=`<span class="ti">✓</span><span>${msg}</span>`;$("#toasts").appendChild(t);setTimeout(()=>{t.style.transition=".3s";t.style.opacity="0";t.style.transform="translateX(20px)";setTimeout(()=>t.remove(),300)},2600)}
 
 // ------------------------------------------------------------
-// JS PART E — LOGIN / LOGOUT / ROLE SWITCHING
+// JS PART E — EMPLOYEE LOGIN / PASSWORD CHANGE / LOGOUT
 // ------------------------------------------------------------
-function login(role){store.role=role;$("#login").style.display="none";$("#app").style.display="block";const u=USERS[role];$("#userName").textContent=u.name;$("#userRole").textContent=u.role;buildNav();store.view=role==="finance"?"fin-list":"sales-list";render()}
-function logout(){store.role=null;store.activeSR=null;store.salesSearched=false;store.salesQuery="";$("#app").style.display="none";$("#login").style.display="grid";closeUserMenu()}
-function switchRole(){const n=store.role==="finance"?"sales":"finance";closeUserMenu();login(n)}
+async function sha256(value){
+  const bytes=new TextEncoder().encode(String(value));
+  const digest=await crypto.subtle.digest("SHA-256",bytes);
+  return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function showLoginError(id,message){
+  const el=document.getElementById(id);
+  if(el)el.textContent=message||"";
+}
+
+function clearBCOSSession(){
+  store.role=null;
+  store.user=null;
+  store.sessionToken=null;
+  store.activeSR=null;
+  store.salesSearched=false;
+  store.salesQuery="";
+  store.sr=[];
+  store.offsets=[];
+  $("#app").style.display="none";
+  $("#login").style.display="grid";
+  $("#loginFormView").style.display="block";
+  $("#changePasswordView").style.display="none";
+  $("#loginPassword").value="";
+  closeUserMenu();
+}
+
+async function submitLogin(event){
+  event.preventDefault();
+  const button=$("#loginButton");
+  showLoginError("loginError","");
+  button.disabled=true;
+  button.textContent="SIGNING IN…";
+  try{
+    const employeeId=$("#employeeId").value.trim();
+    const passwordProof=await sha256($("#loginPassword").value);
+    const result=await bcosApiAction("login",{employeeId,passwordProof});
+    store.sessionToken=result.sessionToken;
+    store.user={employeeId:result.employeeId,fullName:result.fullName,role:result.role};
+    store.role=String(result.role||"").toLowerCase();
+    if(result.mustChangePassword){
+      $("#loginFormView").style.display="none";
+      $("#changePasswordView").style.display="block";
+      $("#newPassword").focus();
+      return;
+    }
+    await enterBCOS();
+  }catch(error){
+    showLoginError("loginError",error.message||"Unable to sign in");
+  }finally{
+    button.disabled=false;
+    button.textContent="SIGN IN";
+  }
+}
+
+async function submitPasswordChange(event){
+  event.preventDefault();
+  const button=$("#changePasswordButton");
+  const password=$("#newPassword").value;
+  const confirmation=$("#confirmPassword").value;
+  showLoginError("changePasswordError","");
+  if(password!==confirmation){
+    showLoginError("changePasswordError","Passwords do not match");
+    return;
+  }
+  if(password==="makeitreal"){
+    showLoginError("changePasswordError","Choose a password different from the default");
+    return;
+  }
+  button.disabled=true;
+  button.textContent="SAVING…";
+  try{
+    await bcosApiAction("changePassword",{newPasswordProof:await sha256(password)});
+    $("#newPassword").value="";
+    $("#confirmPassword").value="";
+    await enterBCOS();
+    toast("Password changed successfully");
+  }catch(error){
+    showLoginError("changePasswordError",error.message||"Unable to change password");
+  }finally{
+    button.disabled=false;
+    button.textContent="SAVE NEW PASSWORD";
+  }
+}
+
+async function enterBCOS(){
+  $("#login").style.display="none";
+  $("#app").style.display="block";
+  $("#userName").textContent=store.user.fullName||store.user.employeeId;
+  $("#userRole").textContent=store.user.role;
+  buildNav();
+  store.view=store.role==="finance"?"fin-list":store.role==="executive"?"fin-dash":"sales-list";
+  await loadFinanceRecord();
+}
+
+async function logout(){
+  try{
+    if(store.sessionToken)await bcosApiAction("logout");
+  }catch(error){
+    console.warn("Logout request failed:",error);
+  }finally{
+    clearBCOSSession();
+  }
+}
 function toggleUserMenu(e){e.stopPropagation();$("#userMenu").classList.toggle("open")}
 function closeUserMenu(){const m=$("#userMenu");if(m)m.classList.remove("open")}
 document.addEventListener("click",closeUserMenu);
@@ -783,6 +915,8 @@ document.addEventListener("click",closeUserMenu);
 function buildNav(){
   const items=store.role==="finance"?[
     {v:"fin-list",ic:"⌂",t:"Buyback List"},{v:"fin-offsets",ic:"⇄",t:"Offset Record List"},{v:"fin-dash",ic:"▦",t:"Dashboard"}
+  ]:store.role==="executive"?[
+    {v:"fin-dash",ic:"▦",t:"Dashboard"},{v:"fin-list",ic:"⌂",t:"Buyback List"},{v:"fin-offsets",ic:"⇄",t:"Offset Record List"}
   ]:[
     {v:"sales-list",ic:"⌂",t:"Buyback Record List"},{v:"sales-offsets",ic:"⇄",t:"Offset Record List"}
   ];
@@ -830,6 +964,9 @@ function renderFinList(){
     <p class="mini" style="margin-top:14px">Statuses are computed from IMEI ↔ CM matching. Open any <b>For Offset</b> row to process the offset directly, or a <b>For AR-OTH Creation</b> row to post the AR-OTH and write-off.</p>`;
 }
 function finStatusCell(s){
+  if(store.role!=="finance"){
+    return statusBadge(s.status);
+  }
   if(s.status==="FOR_OFFSET"){
     return statusBadge(s.status);
   }
@@ -913,7 +1050,7 @@ function salesSearch(){const v=$("#salesSearch");store.salesQuery=v?v.value:"";s
 function salesClear(){store.salesQuery="";store.salesSearched=false;render()}
 
 function openDetail(id,side){store.activeSR=id;store.view=side==="fin"?"fin-detail":"sales-detail";store.draftType="direct";store.draftCM="AR-INC-0001";store.hasRebateOffset="";render()}
-function backToList(){store.activeSR=null;store.view=store.role==="finance"?"fin-list":"sales-list";render()}
+function backToList(){store.activeSR=null;store.view=store.role==="sales"?"sales-list":"fin-list";render()}
 
 // ------------------------------------------------------------
 // JS PART I — TRANSACTION DETAIL PAGE
@@ -1170,7 +1307,6 @@ function exportList(){
   store.sr.forEach(s=>lines.push([s.dt,s.buybackDate,s.id,s.owner,s.arBuy,s.amount,s.rebateCmRef,totalRebate(s),s.offsetNo||"",s.arothNo||"",s.writeOffNo||"",STATUS_META[s.status].label].join(",")));
   const b=new Blob([lines.join("\n")],{type:"text/csv"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="bcos_buyback_list.csv";a.click();toast("Buyback list exported (CSV)");
 }
-  loadFinanceRecord();
 </script>
 </body>
 </html>

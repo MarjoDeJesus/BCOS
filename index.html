@@ -892,7 +892,7 @@ async function enterBCOS(){
   $("#userName").textContent=store.user.fullName||store.user.employeeId;
   $("#userRole").textContent=store.user.role;
   buildNav();
-  store.view=store.role==="finance"?"fin-list":store.role==="executive"?"fin-dash":"sales-list";
+  store.view=store.role==="finance"?"fin-list":store.role==="executive"?"fin-dash":"sales-offsets";
   await loadFinanceRecord();
 }
 
@@ -918,7 +918,7 @@ function buildNav(){
   ]:store.role==="executive"?[
     {v:"fin-dash",ic:"▦",t:"Dashboard"},{v:"fin-list",ic:"⌂",t:"Buyback List"},{v:"fin-offsets",ic:"⇄",t:"Offset Record List"}
   ]:[
-    {v:"sales-list",ic:"⌂",t:"Buyback Record List"},{v:"sales-offsets",ic:"⇄",t:"Offset Record List"}
+    {v:"sales-offsets",ic:"⇄",t:"Offset Record List"}
   ];
   $("#nav").innerHTML=items.map(i=>`<button data-v="${i.v}" onclick="go('${i.v}')"><span class="ni">${i.ic}</span> ${i.t}</button>`).join("")
 }
@@ -1050,7 +1050,7 @@ function salesSearch(){const v=$("#salesSearch");store.salesQuery=v?v.value:"";s
 function salesClear(){store.salesQuery="";store.salesSearched=false;render()}
 
 function openDetail(id,side){store.activeSR=id;store.view=side==="fin"?"fin-detail":"sales-detail";store.draftType="direct";store.draftCM="AR-INC-0001";store.hasRebateOffset="";render()}
-function backToList(){store.activeSR=null;store.view=store.role==="sales"?"sales-list":"fin-list";render()}
+function backToList(){store.activeSR=null;store.view=store.role==="sales"?"sales-offsets":"fin-list";render()}
 
 // ------------------------------------------------------------
 // JS PART I — TRANSACTION DETAIL PAGE

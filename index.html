@@ -712,7 +712,8 @@ function convertFinanceStatus(status) {
 
 
   if (
-    value === "FOR AR-OTH CREATION"
+    value === "FOR AR-OTH CREATION" ||
+    value === "OFFSET CREATION"
   ) {
 
     return "FOR_AROTH";
@@ -743,8 +744,16 @@ function convertFinanceStatus(status) {
   if (
     value === "RELEASED"
   ) {
+    return "ISSUED";
 
-    return "RELEASED";
+  }
+
+  if (value === "OFFSET APPLIED") {
+    return "OFFSET_APPLIED";
+  }
+
+  if (value === "ISSUED") {
+    return "ISSUED";
 
   }
 
@@ -788,17 +797,19 @@ const finalRelease=sr=>sr.offsetType==="available"?sr.amount:sr.amount-rebateAbs
 const STATUS_META={
   FOR_OFFSET:{label:"For Offset",cls:"b-offset"},
   FOR_GA_FILLING:{label:"For GA Filing",cls:"b-ga"},
-  FOR_AROTH:{label:"For AR-OTH Creation",cls:"b-aroth"},
+  FOR_AROTH:{label:"Offset Creation",cls:"b-aroth"},
   ONGOING_GA:{label:"On Going GA",cls:"b-ga"},
-  RELEASED:{label:"Released",cls:"b-released"}
+  OFFSET_APPLIED:{label:"Offset Applied",cls:"b-aroth"},
+  ISSUED:{label:"Issued",cls:"b-released"}
 };
 const statusBadge=s=>{const m=STATUS_META[s]||STATUS_META.FOR_OFFSET;return `<span class="badge ${m.cls}">${m.label}</span>`};
 const STEPS=[
   {key:"FOR_OFFSET",lab:"For Offset"},
-  {key:"FOR_AROTH",lab:"AR-OTH Processing"},{key:"FOR_GA_FILLING",lab:"For GA Filing"},
-  {key:"ONGOING_GA",lab:"On Going GA"},{key:"RELEASED",lab:"Released"}
+  {key:"FOR_AROTH",lab:"Offset Creation"},{key:"FOR_GA_FILLING",lab:"For GA Filing"},
+  {key:"ONGOING_GA",lab:"On Going GA"},{key:"OFFSET_APPLIED",lab:"Offset Applied"},
+  {key:"ISSUED",lab:"Issued"}
 ];
-function stepIndexFor(s){if(s==="FOR_AROTH")return 1;if(s==="FOR_GA_FILLING")return 2;if(s==="ONGOING_GA")return 3;if(s==="RELEASED")return 4;return 0}
+function stepIndexFor(s){if(s==="FOR_AROTH")return 1;if(s==="FOR_GA_FILLING")return 2;if(s==="ONGOING_GA")return 3;if(s==="OFFSET_APPLIED")return 4;if(s==="ISSUED")return 5;return 0}
 function toast(msg){const t=document.createElement("div");t.className="toast";t.innerHTML=`<span class="ti">✓</span><span>${msg}</span>`;$("#toasts").appendChild(t);setTimeout(()=>{t.style.transition=".3s";t.style.opacity="0";t.style.transform="translateX(20px)";setTimeout(()=>t.remove(),300)},2600)}
 
 // ------------------------------------------------------------
@@ -962,7 +973,7 @@ function renderFinList(){
   return `<div class="toolbar">
       <div class="search"><input placeholder="Search SR / owner / CM…" oninput="quickFilter(this.value,'finTbl')"><span class="go">⌕</span></div>
       <div class="pill-filter">▤ <select class="status-filter" onchange="finFilter=this.value;render()">
-        <option value="ALL">All Status</option><option value="FOR_OFFSET">For Offset</option><option value="FOR_AROTH">For AR-OTH Creation</option><option value="FOR_GA_FILLING">For GA Filing</option><option value="ONGOING_GA">On Going GA</option><option value="RELEASED">Released</option></select></div>
+        <option value="ALL">All Status</option><option value="FOR_OFFSET">For Offset</option><option value="FOR_AROTH">Offset Creation</option><option value="FOR_GA_FILLING">For GA Filing</option><option value="ONGOING_GA">On Going GA</option><option value="OFFSET_APPLIED">Offset Applied</option><option value="ISSUED">Issued</option></select></div>
       <span class="lbl">From</span><div class="date-pick">▤ 09 Feb 2021</div><span class="lbl">To</span><div class="date-pick">▤ 09 Feb 2021</div>
       <div class="spacer"></div><button class="btn" onclick="exportList()">EXPORT</button>
     </div>
@@ -970,7 +981,7 @@ function renderFinList(){
       <thead class="purple"><tr>
         <th>DT Approval ID</th><th>Buyback Date</th><th>Sales Return Ref. No.</th><th>Material Name</th><th>Buyback Owner</th><th>CM Reference No.</th><th>Buyback Amount</th><th>Rebate CM No.</th><th>CM Nature</th><th>CM Detail</th><th>Rebate Amount</th><th>Offset No.</th><th>Rebate Offset No.</th><th>Manual Write-off No.</th><th>Status</th>
       </tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="mini" style="margin-top:14px">Statuses are computed from IMEI ↔ CM matching. Open any <b>For Offset</b> row to process the offset directly, or a <b>For AR-OTH Creation</b> row to post the AR-OTH and write-off.</p>`;
+    <p class="mini" style="margin-top:14px">Statuses are computed from IMEI ↔ CM matching. Open any <b>For Offset</b> row to create the offset. Manual Write-off is entered only during <b>On Going GA</b>.</p>`;
 }
 function finStatusCell(s){
   if(store.role!=="finance"){
@@ -982,10 +993,16 @@ function finStatusCell(s){
 
   if(["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status)){
     return `<select class="badge-select" onchange="financeChangeStatus('${s.id}',this.value)">
-      <option value="FOR_AROTH" ${s.status==="FOR_AROTH"?"selected":""}>For AR-OTH Creation</option>
+      <option value="FOR_AROTH" ${s.status==="FOR_AROTH"?"selected":""}>Offset Creation</option>
       <option value="FOR_GA_FILLING" ${s.status==="FOR_GA_FILLING"?"selected":""}>For GA Filing</option>
       <option value="ONGOING_GA" ${s.status==="ONGOING_GA"?"selected":""}>On Going GA</option>
-      <option value="RELEASED">Released</option>
+    </select>`;
+  }
+
+  if(s.status==="OFFSET_APPLIED"){
+    return `<select class="badge-select" onchange="financeChangeStatus('${s.id}',this.value)">
+      <option value="OFFSET_APPLIED" selected>Offset Applied</option>
+      <option value="ISSUED">Issued</option>
     </select>`;
   }
 
@@ -995,12 +1012,6 @@ function finStatusCell(s){
 async function financeChangeStatus(id,val){
   const s=store.sr.find(x=>x.id===id);
   if(!s)return;
-
-  if(val==="RELEASED" && ((s.arothNo && !s.writeOffNo) || (!s.arothNo && s.writeOffNo))){
-    toast("Complete both Rebate Offset No. and Write-off No. first");
-    render();
-    return;
-  }
 
   try{
     await bcosApiAction("setStatus",{srRef:id,status:val});
@@ -1090,12 +1101,12 @@ function renderDetail(){
     }else{
       actionPanel=`<div class="panel"><span class="confirm-head">Finance Processing</span><div class="note-done">This transaction is already tagged <b>For Offset</b>. Finance controls the straight-through offset process and Offset No. creation.</div></div>`;
     }
-  }else if(["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA"].includes(s.status)){
+  }else if(["FOR_AROTH","FOR_GA_FILLING","ONGOING_GA","OFFSET_APPLIED"].includes(s.status)){
     const byTag=s.offsetBy?`<span class="who-tag">Offset by ${s.offsetBy}</span>`:"";
     if(store.role==="finance"){actionPanel=arothPanel(s,byTag);}
     else{actionPanel=`<div class="panel"><span class="confirm-head">Finance Processing ${byTag}</span><div class="note-done">Offset <b>${s.offsetNo}</b> recorded. Current status: <b>${(STATUS_META[s.status]||{}).label||s.status}</b>. Finance controls the remaining GA / release process.</div></div>`;}
-  }else if(s.status==="RELEASED"){
-    actionPanel=`<div class="panel"><span class="confirm-head">Released</span><div class="note-done">Offset <b>${s.offsetNo}</b> · Rebate Offset No. <b>${s.arothNo}</b> · Write-off No. <b>${s.writeOffNo}</b>.<br>Buyback amount released to owner: <b>${peso(finalRelease(s))}</b>.</div></div>`;
+  }else if(s.status==="ISSUED"){
+    actionPanel=`<div class="panel"><span class="confirm-head">Issued</span><div class="note-done">Offset <b>${s.offsetNo}</b> · Rebate Offset No. <b>${s.arothNo||"-"}</b> · Write-off No. <b>${s.writeOffNo||"-"}</b>.<br>Buyback amount issued to owner: <b>${peso(finalRelease(s))}</b>.</div></div>`;
   }
 
   return `<button class="back" onclick="backToList()">← Back to list</button>
@@ -1139,7 +1150,7 @@ function settleCard(s,type,cmId){
   return `<div class="settle-card">
     <div class="settle-row"><div class="k">Buyback CM<small>${s.arBuy}</small></div><div class="v"><span class="peso">₱</span>${s.amount.toLocaleString()}</div></div>
     <div class="settle-row"><div class="k">Rebate Offset<small>${s.cms.filter(c=>c.rebate!=null).map(c=>c.doc).join(" · ")||"—"}</small></div><div class="v neg"><span class="peso">₱</span>${tr}</div></div>
-    <div class="final-row"><div class="k">Buyback Amount for Released</div><div class="v"><span class="peso" style="color:inherit;opacity:.6">₱</span>${(s.amount-rebateAbs(s)).toLocaleString()}</div></div>
+    <div class="final-row"><div class="k">Buyback Amount for Issued</div><div class="v"><span class="peso" style="color:inherit;opacity:.6">₱</span>${(s.amount-rebateAbs(s)).toLocaleString()}</div></div>
   </div>`;
 }
 
@@ -1152,10 +1163,9 @@ function offsetConfirmPanel(s){
   const nextAction=choice==="yes"?`
     <div class="aroth-form">
       <div><label>Rebate Offset No. (AR-OTH)</label><input id="newArothInput" placeholder="e.g. AR-OTH-0001"></div>
-      <div><label>Manual Write-off No.</label><input id="newWoInput" placeholder="e.g. 1234323"></div>
       <button class="btn" style="width:100%" onclick="processOffset('${s.id}','yes')">Submit</button>
     </div>
-    <p class="avail-note">Submitting creates the Offset Control No., saves both references, and moves the transaction to <b>For GA Filing</b>.</p>
+    <p class="avail-note">Submitting creates the Offset Control No., saves the AR-OTH reference, and moves the transaction to <b>For GA Filing</b>.</p>
   `:choice==="no"?`
     <div class="note-done">No AR-OTH or Manual Write-off input is required. Continue to automatically create the Offset Control No. and tag the transaction as <b>For GA Filing</b>.</div>
     <button class="btn" style="width:100%;margin-top:16px" onclick="processOffset('${s.id}','no')">Create Offset Control No.</button>
@@ -1191,14 +1201,38 @@ function setDraftType(t){store.draftType=t;render()}
 // JS PART L — FINANCE AR-OTH + MANUAL WRITE-OFF
 // ------------------------------------------------------------
 function arothPanel(s,byTag){
-  const hasSavedReferences=Boolean(s.arothNo || s.writeOffNo);
-  const details=hasSavedReferences
-    ? `<div class="note-done">Offset <b>${s.offsetNo||"-"}</b> completed. Saved AR-OTH: <b>${s.arothNo||"-"}</b> · Manual Write-off: <b>${s.writeOffNo||"-"}</b>.</div>`
-    : `<div class="note-done">Offset <b>${s.offsetNo||"-"}</b> completed with <b>No Rebate Offset</b>. No AR-OTH or Manual Write-off is required.</div>`;
+  if(s.status==="ONGOING_GA" && store.role==="finance"){
+    const needsWriteOff=rebateAbs(s)>0;
+    return `<div class="panel"><span class="confirm-head">On Going GA ${byTag||""}</span>
+      <div class="note-done">Offset <b>${s.offsetNo||"-"}</b> is under GA processing.</div>
+      ${needsWriteOff?`<div class="aroth-form" style="margin-top:16px">
+        <div><label>Manual Write-off No.</label><input id="ongoingWoInput" placeholder="e.g. 1234323" value="${s.writeOffNo||""}"></div>
+        <button class="btn" style="width:100%" onclick="applyOffset('${s.id}')">Submit & Mark Offset Applied</button>
+      </div>`:`<button class="btn" style="width:100%;margin-top:16px" onclick="applyOffset('${s.id}')">Mark Offset Applied</button>`}
+    </div>`;
+  }
+  const details=s.status==="OFFSET_APPLIED"
+    ? `<div class="note-done">Offset <b>${s.offsetNo||"-"}</b> applied. AR-OTH: <b>${s.arothNo||"-"}</b> · Manual Write-off: <b>${s.writeOffNo||"-"}</b>.</div>`
+    : s.arothNo
+      ? `<div class="note-done">Offset <b>${s.offsetNo||"-"}</b> created. Saved AR-OTH: <b>${s.arothNo}</b>. Manual Write-off will be entered during <b>On Going GA</b>.</div>`
+      : `<div class="note-done">Offset <b>${s.offsetNo||"-"}</b> created with <b>No Rebate Offset</b>. No AR-OTH or Manual Write-off is required.</div>`;
   return `<div class="panel"><span class="confirm-head">Finance Processing ${byTag||""}</span>
     ${details}
     <p class="avail-note">Current status: <b>${(STATUS_META[s.status]||{}).label||s.status}</b>.</p>
   </div>`;
+}
+async function applyOffset(id){
+  const s=store.sr.find(x=>x.id===id);if(!s||store.offsetBusy)return;
+  const input=$("#ongoingWoInput");
+  const manualWriteOffNo=input?input.value.trim():"";
+  if(rebateAbs(s)>0 && !manualWriteOffNo){toast("Enter the Manual Write-off No.");return;}
+  store.offsetBusy=true;
+  try{
+    await bcosApiAction("applyOffset",{srRef:id,manualWriteOffNo:manualWriteOffNo});
+    toast(`${id} updated to Offset Applied`);
+    await loadFinanceRecord();render();
+  }catch(error){console.error(error);toast(error.message||"Unable to apply offset");}
+  finally{store.offsetBusy=false;}
 }
 // ------------------------------------------------------------
 // JS PART M — PROCESS OFFSET / CREATE OFFSET NUMBER / CHANGE STATUS
@@ -1224,12 +1258,10 @@ async function processOffset(id,hasRebateOffset){
 
   const isYes=hasRebateOffset==="yes";
   const arothInput=isYes?$("#newArothInput"):null;
-  const woInput=isYes?$("#newWoInput"):null;
   const rebateOffsetNo=arothInput?arothInput.value.trim():"";
-  const manualWriteOffNo=woInput?woInput.value.trim():"";
 
-  if(isYes && (!rebateOffsetNo || !manualWriteOffNo)){
-    toast("Enter the AR-OTH No. and Manual Write-off No.");
+  if(isYes && !rebateOffsetNo){
+    toast("Enter the AR-OTH No.");
     return;
   }
 
@@ -1241,7 +1273,7 @@ async function processOffset(id,hasRebateOffset){
       availableCM:"",
       hasRebateOffset:hasRebateOffset,
       rebateOffsetNo:rebateOffsetNo,
-      manualWriteOffNo:manualWriteOffNo
+      manualWriteOffNo:""
     });
 
     toast(`Offset processed · ${result.offsetNo} created`);
@@ -1314,8 +1346,8 @@ function renderOffsets(){
 function renderDash(){
   const all=store.sr;const count=st=>all.filter(s=>s.status===st).length;
   const totalBuyback=all.reduce((a,s)=>a+s.amount,0);const totalRebateAll=all.reduce((a,s)=>a+rebateAbs(s),0);
-  const released=all.filter(s=>s.status==="RELEASED");const totalReleased=released.reduce((a,s)=>a+finalRelease(s),0);
-  const dist=[{k:"For Offset",n:count("FOR_OFFSET"),c:"#FFC61A"},{k:"For AR-OTH Creation",n:count("FOR_AROTH"),c:"#8d8b98"},{k:"For GA Filing",n:count("FOR_GA_FILLING"),c:"#E9C766"},{k:"On Going GA",n:count("ONGOING_GA"),c:"#c6b46a"},{k:"Released",n:count("RELEASED"),c:"#1f1e25"}];
+  const released=all.filter(s=>s.status==="ISSUED");const totalReleased=released.reduce((a,s)=>a+finalRelease(s),0);
+  const dist=[{k:"For Offset",n:count("FOR_OFFSET"),c:"#FFC61A"},{k:"Offset Creation",n:count("FOR_AROTH"),c:"#8d8b98"},{k:"For GA Filing",n:count("FOR_GA_FILLING"),c:"#E9C766"},{k:"On Going GA",n:count("ONGOING_GA"),c:"#c6b46a"},{k:"Offset Applied",n:count("OFFSET_APPLIED"),c:"#a28b39"},{k:"Issued",n:count("ISSUED"),c:"#1f1e25"}];
   const maxN=Math.max(1,...dist.map(d=>d.n));
   const bars=dist.map(d=>`<div class="barrow"><div class="bl">${d.k}</div><div class="bartrack"><div class="barfill" style="width:${(d.n/maxN)*100}%;background:${d.c}"></div></div><div class="bn">${d.n}</div></div>`).join("");
   const total=all.length||1;let acc=0;const segs=dist.map(d=>{const f=d.n/total;const s=`${d.c} ${acc*360}deg ${(acc+f)*360}deg`;acc+=f;return s}).join(",");
@@ -1324,7 +1356,7 @@ function renderDash(){
       <div class="kpi"><div class="kl">Sales Returns</div><div class="kv">${all.length}</div><div class="kd">in the offset pipeline</div></div>
       <div class="kpi"><div class="kl">Total Buyback</div><div class="kv">${peso(totalBuyback)}</div><div class="kd">across all returns</div></div>
       <div class="kpi"><div class="kl">Total CM Rebate</div><div class="kv neg">${peso(totalRebateAll)}</div><div class="kd">matched to credit memos</div></div>
-      <div class="kpi"><div class="kl">Released Amount</div><div class="kv pos">${peso(totalReleased)}</div><div class="kd">${released.length} return(s) released</div></div>
+      <div class="kpi"><div class="kl">Issued Amount</div><div class="kv pos">${peso(totalReleased)}</div><div class="kd">${released.length} return(s) issued</div></div>
     </div>
     <div class="dash-grid">
       <div class="panel"><p class="card-h">Status distribution</p><p class="card-s">Where returns sit in the offset workflow right now.</p>${bars}</div>

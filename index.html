@@ -1166,10 +1166,24 @@ function offsetConfirmPanel(s){
     <div class="field-lab" style="margin-top:18px">Has Rebate Offset?</div>
     <div class="offset-opts">
       <div class="opt ${choice==='yes'?'sel':''}" onclick="store.hasRebateOffset='yes';render()"><span>Yes</span><span class="radio"></span></div>
-      <div class="opt ${choice==='no'?'sel':''}" onclick="store.hasRebateOffset='no';render()"><span>No</span><span class="radio"></span></div>
+      <div class="opt ${choice==='no'?'sel':''}" onclick="chooseRebateOffset('${s.id}','no')"><span>No</span><span class="radio"></span></div>
     </div>
     ${nextAction}
   </div>`;
+}
+function showRebateOffsetDetected(){
+  alert("Rebate Offset Detected:\n\nOffset Control No. cannot be created while a rebate offset is present.\n\nPlease select YES to proceed.");
+}
+function chooseRebateOffset(id,choice){
+  const s=store.sr.find(x=>x.id===id);
+  if(choice==="no" && s && rebateAbs(s)>0){
+    store.hasRebateOffset="";
+    showRebateOffsetDetected();
+    render();
+    return;
+  }
+  store.hasRebateOffset=choice;
+  render();
 }
 function setDraftType(t){store.draftType=t;render()}
 
@@ -1198,6 +1212,13 @@ async function processOffset(id,hasRebateOffset){
 
   if(store.role!=="finance"){
     toast("Finance controls offset processing");
+    return;
+  }
+
+  if(hasRebateOffset==="no" && rebateAbs(s)>0){
+    store.hasRebateOffset="";
+    showRebateOffsetDetected();
+    render();
     return;
   }
 
